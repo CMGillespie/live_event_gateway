@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LEG Mission Control — Admin</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛰️</text></svg>">
+<!--
+  Live Event Gateway — Admin Console
+  v0.1 — Google sign-in, live agent roster, remote Start/Mute/Split/Leave/End
+-->
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0D1B2E; --panel: #162540; --panel2: #1B3A6B; --line: #24406e;
+    --text: #FFFFFF; --dim: #8AAACC; --dim2: #5A7A9A;
+    --accent: #2A6DB5; --accent-hi: #5AA0E9;
+    --ok: #33cc77; --warn: #FFAA20; --err: #FF6666;
+  }
+  body { background: var(--bg); color: var(--text); font-family: Arial, Helvetica, sans-serif; min-height: 100vh; }
+
+  /* ── Top bar ── */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 22px; background: var(--panel); border-bottom: 2px solid var(--line);
+    flex-wrap: wrap; gap: 10px;
+  }
+  .brand { display: flex; align-items: baseline; gap: 10px; }
+  .brand-logo { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; }
+  .brand-sub  { font-size: 13px; color: var(--accent-hi); }
+  .who { font-size: 13px; color: var(--dim); display: flex; align-items: center; gap: 12px; }
+  .btn-out { background: var(--panel2); color: var(--text); border: none; border-radius: 6px; padding: 8px 14px; font-size: 13px; font-weight: bold; cursor: pointer; }
+  .btn-out:hover { background: #24487e; }
+
+  /* ── Sign-in ── */
+  #signin { min-height: 80vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; text-align: center; padding: 30px; }
+  #signin h1 { font-size: 28px; font-weight: 900; }
+  #signin p  { color: var(--dim); font-size: 15px; max-width: 420px; line-height: 1.5; }
+  .btn-google {
+    display: flex; align-items: center; gap: 12px;
+    background: #FFFFFF; color: #202124; border: none; border-radius: 8px;
+    padding: 14px 24px; font-size: 16px; font-weight: bold; cursor: pointer;
+  }
+  .btn-google:hover { background: #f2f2f2; }
+  .signin-err { color: var(--err); font-size: 13px; min-height: 18px; }
+
+  /* ── Dashboard ── */
+  #dash { padding: 20px 22px 40px; }
+  .dash-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+  .dash-head h2 { font-size: 18px; font-weight: bold; }
+  .count-pill { font-size: 13px; color: var(--dim); background: var(--panel); padding: 6px 12px; border-radius: 14px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; border-left: 5px solid var(--dim2); }
+  .card.online { border-left-color: var(--ok); }
+  .card.offline { border-left-color: var(--dim2); opacity: 0.7; }
+
+  .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+  .card-label { font-size: 18px; font-weight: bold; }
+  .card-id { font-size: 11px; color: var(--dim2); font-family: monospace; margin-top: 2px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--dim2); flex-shrink: 0; margin-top: 6px; }
+  .dot.online { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+
+  .status-pill { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; background: var(--panel2); color: var(--dim); }
+  .status-pill.live { background: #16451f; color: #66ee88; }
+  .status-pill.muted { background: #4a3a10; color: #ffcc55; }
+  .status-pill.connecting { background: #16345f; color: #7ab8ff; }
+  .status-pill.error { background: #4a1414; color: #ff8888; }
+  .status-pill.ended, .status-pill.idle { background: var(--panel2); color: var(--dim); }
+  .status-pill.offline { background: #241a1a; color: #997777; }
+
+  .meta { font-size: 13px; color: var(--dim); margin: 10px 0; line-height: 1.7; }
+  .meta b { color: var(--text); font-weight: bold; }
+  .meta .mono { font-family: monospace; letter-spacing: 1px; }
+  .meta .muteflag { color: var(--warn); font-weight: bold; }
+  .notready { color: var(--warn); font-size: 12px; }
+
+  .cmds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+  .cmd { padding: 11px 6px; border: none; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; color: #fff; }
+  .cmd:disabled { opacity: 0.35; cursor: not-allowed; }
+  .cmd-start { background: #1b5caa; }
+  .cmd-mute  { background: #7a5a10; }
+  .cmd-unmute{ background: #2e7d32; }
+  .cmd-split { background: #0d5a0d; }
+  .cmd-leave { background: #1a2a50; }
+  .cmd-end   { background: #7a1414; }
+  .cmd:not(:disabled):hover { filter: brightness(1.18); }
+
+  .result { margin-top: 10px; font-size: 12px; color: var(--dim2); min-height: 16px; }
+  .result.ok  { color: var(--ok); }
+  .result.err { color: var(--err); }
+
+  .empty { text-align: center; color: var(--dim2); padding: 60px 20px; font-size: 15px; }
+  code { background: #060e1a; padding: 2px 6px; border-radius: 4px; font-family: monospace; color: var(--accent-hi); }
+</style>
+</head>
+<body>
+
+<div id="signin">
+  <div class="brand" style="justify-content:center">
+    <span class="brand-logo">LIVE EVENT GATEWAY</span>
+    <span class="brand-sub">Mission Control</span>
+  </div>
+  <h1>Admin Console</h1>
+  <p>Sign in with your Wordly Google account to see and control room agents.</p>
+  <button class="btn-google" onclick="doSignIn()">
+    <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.7 1.22 9.2 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+    Sign in with Google
+  </button>
+  <div class="signin-err" id="signin-err"></div>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <div class="brand">
+      <span class="brand-logo">LIVE EVENT GATEWAY</span>
+      <span class="brand-sub">Mission Control</span>
+    </div>
+    <div class="who">
+      <span id="who-email"></span>
+      <button class="btn-out" onclick="doSignOut()">Sign out</button>
+    </div>
+  </header>
+  <div id="dash">
+    <div class="dash-head">
+      <h2>Room Agents</h2>
+      <span class="count-pill" id="count-pill">0 agents</span>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="empty" id="empty">
+      No agents checked in yet. Open the agent page (<code>index.html</code>) on a device — it will appear here automatically.
+    </div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+  const db = firebase.database();
+  const auth = firebase.auth();
+  let agentsRef = null;
+
+  // ── Auth ──────────────────────────────────────────────
+  function doSignIn() {
+    document.getElementById('signin-err').textContent = '';
+    const provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider).catch(function (e) {
+      document.getElementById('signin-err').textContent = e.message || 'Sign-in failed.';
+    });
+  }
+  function doSignOut() { auth.signOut(); }
+
+  auth.onAuthStateChanged(function (user) {
+    if (user) {
+      document.getElementById('signin').hidden = true;
+      document.getElementById('app').hidden = false;
+      document.getElementById('who-email').textContent = user.email || user.displayName || '';
+      startWatching();
+    } else {
+      document.getElementById('app').hidden = true;
+      document.getElementById('signin').hidden = false;
+      if (agentsRef) { agentsRef.off(); agentsRef = null; }
+    }
+  });
+
+  // ── Live agent roster ────────────────────────────────
+  function startWatching() {
+    if (agentsRef) return;
+    agentsRef = db.ref('agents');
+    agentsRef.on('value', function (snap) { render(snap.val() || {}); });
+  }
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]); }); }
+  function ago(ts) {
+    if (!ts) return '—';
+    const s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 5) return 'just now';
+    if (s < 60) return s + 's ago';
+    if (s < 3600) return Math.floor(s/60) + 'm ago';
+    return Math.floor(s/3600) + 'h ago';
+  }
+
+  function render(agents) {
+    const ids = Object.keys(agents);
+    const grid = document.getElementById('grid');
+    document.getElementById('empty').hidden = ids.length > 0;
+    document.getElementById('count-pill').textContent = ids.length + (ids.length === 1 ? ' agent' : ' agents');
+
+    grid.innerHTML = ids.map(function (id) {
+      const a = agents[id] || {};
+      const online = !!a.online;
+      const status = (a.status || 'idle').toLowerCase();
+      const streaming = ['live','muted','connecting'].indexOf(status) !== -1;
+      const res = a.lastResult || {};
+
+      const dis = online ? '' : 'disabled';
+      // command enable logic mirrors agent-side guards
+      const canStart  = online && !streaming && a.configReady;
+      const canMute   = online && status === 'live';
+      const canUnmute = online && status === 'muted';
+      const canSplit  = online && (status === 'live' || status === 'muted');
+      const canLeave  = online && streaming;
+      const canEnd    = online && streaming;
+
+      return `
+        <div class="card ${online ? 'online' : 'offline'}">
+          <div class="card-top">
+            <div>
+              <div class="card-label">${esc(a.label || id)}</div>
+              <div class="card-id">${esc(id)}</div>
+            </div>
+            <div class="dot ${online ? 'online' : ''}" title="${online ? 'online' : 'offline'}"></div>
+          </div>
+
+          <span class="status-pill ${online ? status : 'offline'}">${online ? esc(status) : 'offline'}</span>
+
+          <div class="meta">
+            <div>Session: <b class="mono">${esc(a.sessionId || '—')}</b></div>
+            <div>Device: <b>${esc(a.deviceLabel || '—')}</b></div>
+            ${a.muted ? '<div class="muteflag">⏸ MUTED</div>' : ''}
+            ${(!a.configReady && online) ? '<div class="notready">⚠ device not configured (set session + audio locally)</div>' : ''}
+            <div style="color:var(--dim2);font-size:11px">updated ${ago(a.updatedAt)}</div>
+          </div>
+
+          <div class="cmds">
+            <button class="cmd cmd-start"  ${canStart?'':'disabled'} onclick="cmd('${id}','start')">▶ Start</button>
+            <button class="cmd cmd-mute"   ${canMute?'':'disabled'} onclick="cmd('${id}','mute')">⏸ Mute</button>
+            <button class="cmd cmd-unmute" ${canUnmute?'':'disabled'} onclick="cmd('${id}','unmute')">▶ Unmute</button>
+            <button class="cmd cmd-split"  ${canSplit?'':'disabled'} onclick="cmd('${id}','split')">✂ Split</button>
+            <button class="cmd cmd-leave"  ${canLeave?'':'disabled'} onclick="cmd('${id}','leave')">⤴ Leave</button>
+            <button class="cmd cmd-end"    ${canEnd?'':'disabled'} onclick="confirmEnd('${id}')">■ End</button>
+          </div>
+
+          <div class="result ${res.ok === false ? 'err' : (res.action ? 'ok' : '')}">
+            ${res.action ? (esc(res.action) + ': ' + esc(res.note || (res.ok ? 'ok' : 'failed'))) : ''}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  // ── Send a command ───────────────────────────────────
+  function cmd(agentId, action) {
+    const id = 'cmd-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+    db.ref('agents/' + agentId + '/command').set({
+      id: id,
+      action: action,
+      by: (auth.currentUser && auth.currentUser.email) || 'unknown',
+      ts: firebase.database.ServerValue.TIMESTAMP
+    });
+  }
+  function confirmEnd(agentId) {
+    if (confirm('End the session for everyone in this room? Attendees will be disconnected.')) cmd(agentId, 'end');
+  }
+</script>
+</body>
+</html>

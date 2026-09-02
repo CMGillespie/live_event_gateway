@@ -1,0 +1,12 @@
+{
+  "//": "Live Event Gateway — RTDB security rules v0.1 (LOCKED). Apply when leaving test mode. Requires any signed-in user (agent = anonymous auth, admin = Google auth). Tighten later: restrict command-writes to Google (non-anon) admins, and restrict presence-writes to the owning agent.",
+  "rules": {
+    "agents": {
+      ".read": "auth != null",
+      "$agentId": {
+        ".write": "auth != null",
+        ".validate": true
+      }
+    }
+  }
+}

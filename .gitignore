@@ -1,7 +1,18 @@
-venv/
-__pycache__/
-*.pyc
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Secrets — never commit (Wordly apikey, service accounts, etc.)
 .env
-logs/
-*.log
+*.serviceaccount.json
+firebase-adminsdk*.json
+
+# Local reference copies (each lives in its own repo — not part of LEG)
+_reference_mission_control/
+wordly-reaction-engine/
+
+# OS / editor
 .DS_Store
+*.log
+*.tvdownload
+firestore-debug.log
