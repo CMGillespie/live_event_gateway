@@ -109,6 +109,7 @@
   let filter      = null;   // null | 'active' | 'inactive'
   let sortKey     = null;   // null (default sort) | status|room|session|device|age
   let sortDir     = 1;      // 1 asc, -1 desc
+  let prevFilter  = null;   // filter to restore after a bulk action ends
   let intentional = {};     // id -> true : we commanded end/leave, suppress drop alert
   let dropAlerts  = [];     // {id, name, at}
   let audioCtx    = null;
@@ -354,7 +355,12 @@
 
   // ── Bulk arm-or-fire ──
   function armOrFire(mode){
-    if (armMode === null){ armMode = mode; render(); return; }
+    if (armMode === null){
+      armMode = mode;
+      prevFilter = filter;
+      filter = (mode === 'start') ? 'inactive' : 'active';  // Start -> startable rooms; others -> live rooms
+      render(); return;
+    }
     if (armMode !== mode) return;               // another mode armed; ignore
     const ids = Object.keys(selected);
     if (!ids.length){ cancelArm(); return; }
@@ -363,7 +369,7 @@
     ids.forEach(id => { if (mode==='end') intentional[id]=true; sendCmd(id, mode); });
     cancelArm();
   }
-  function cancelArm(){ armMode = null; selected = {}; render(); }
+  function cancelArm(){ armMode = null; selected = {}; filter = prevFilter; prevFilter = null; render(); }
   function toggleSel(id, el){ if (el.checked) selected[id]=true; else delete selected[id]; updateArmUI(); }
   function toggleSelectAll(el){
     document.querySelectorAll('#tbody input[type=checkbox]').forEach(cb => { cb.checked = el.checked; cb.dispatchEvent(new Event('change')); });
