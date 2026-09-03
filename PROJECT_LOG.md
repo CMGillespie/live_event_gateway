@@ -1,8 +1,20 @@
 # Live Event Gateway — Project Log
 
-**Timestamp:** 2026-09-02
+**Timestamp:** 2026-09-03
 **Phase:** 1 (Goal One) — remote control of one room agent via Firebase
-**Version:** v0.1 (Firebase agent + admin control loop, pre-live-test)
+**Version:** v0.2 (control loop PROVEN live; admin clear/remove added)
+
+---
+
+## Milestone — 2026-09-03: control loop working end to end
+
+Anonymous auth enabled (with 30-day auto-cleanup). Agent checks into Firebase on load, appears in admin as a live card (name / session / device / status), and remote commands round-trip (verified: session started + ended from admin). Admin now has **Clear offline** (bulk) and per-card **✕ remove** for demo hygiene, and the sign-in panel hides after auth.
+
+**Open loose ends:**
+1. **Appliance repo `main` is still on the socket.io regression** (`cfdecff`) — an appliance-chat full-file regen clobbered the pure-browser app a 3rd time. LEG is unaffected (built from the good 778-line base), but the appliance repo needs restoring before any re-mirror.
+2. **Name-prominence CSS** (name big, session ID second) from the appliance chat is **not yet in LEG** — blocked on #1.
+3. Admin UI: collapsible/compact cards for many rooms (fine at 1, needed at scale).
+4. Per-room preconfig links (`?session=&passcode=&name=`) — build upstream in the appliance so both versions inherit.
 
 ---
 

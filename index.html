@@ -59,8 +59,8 @@ select { width: 100%; padding: 13px 16px; background: #060E1A; border: 1px solid
 .brand-logo { font-size: 32px; font-weight: 900; }
 .brand-sub  { font-size: 15px; color: #4A90D9; }
 .scard { background: #162540; border-radius: 8px; padding: 14px 18px; margin-bottom: 12px; border-left: 4px solid #2A6DB5; }
-.scard-sid { font-family: monospace; font-size: 30px; font-weight: bold; letter-spacing: 2px; }
-.scard-sub { font-size: 16px; color: #7AAAD5; margin-top: 4px; }
+.scard-sid { font-family: monospace; font-size: 16px; color: #7AAAD5; letter-spacing: 1px; margin-bottom: 2px; }
+.scard-sub { font-size: 30px; font-weight: bold; color: #FFFFFF; margin-bottom: 4px; }
 .scard-dev { font-size: 13px; color: #4A6A8A; margin-top: 6px; }
 .net-line   { font-size: 14px; color: #3A5A7A; margin-bottom: auto; }
 .net-line.ok { color: #4A90D9; }
@@ -109,16 +109,6 @@ input:checked + .tog-slide:before { transform: translateX(20px); }
 }
 .ls-btn.active { background: #2A6DB5; color: #FFF; border-color: #5AA0E9; box-shadow: 0 0 0 2px #5AA0E9; }
 .ls-btn:active { opacity: 0.8; }
-
-/* Caption launch pill */
-.cap-pill {
-  display: inline-block; padding: 5px 14px;
-  font-size: 11px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase;
-  background: #1B3A6B; color: #88AACC;
-  border: 1px solid #2A5298; border-radius: 20px;
-  cursor: pointer; margin-bottom: 8px; transition: background 0.15s;
-}
-.cap-pill.fired { background: #2A6DB5; color: #FFF; }
 
 /* Meter */
 .meter-wrap  { margin-top: auto; padding-top: 8px; }
@@ -175,6 +165,41 @@ input:checked + .tog-slide:before { transform: translateX(20px); }
 .conf-btns { display: flex; gap: 12px; justify-content: center; }
 .conf-yes  { padding: 16px 32px; font-size: 18px; font-weight: bold; background: #1B5CAA; color: #FFF; border: none; border-radius: 8px; cursor: pointer; }
 .conf-no   { padding: 16px 32px; font-size: 18px; font-weight: bold; background: #162540; color: #8AAACC; border: 2px solid #2A5298; border-radius: 8px; cursor: pointer; }
+
+/* ══ PORTRAIT MODE ══════════════════════════════════════════
+   Applied when body.portrait — targets 480×800 viewport
+   All landscape px values stay; portrait overrides stack below
+════════════════════════════════════════════════════════════ */
+body.portrait #screen-idle    { flex-direction: column; }
+body.portrait .idle-left      { width: 100%; border-right: none; border-bottom: 1px solid #1B3A6B; padding: 16px 16px 12px 18px; }
+body.portrait .idle-right     { flex: none; height: 220px; padding: 16px; }
+body.portrait #btn-start      { font-size: 28px; }
+
+body.portrait #screen-streaming { flex-direction: column; }
+body.portrait .sinfo          { width: 100%; border-right: none; border-bottom: 3px solid #2E7D32; padding: 12px 16px 10px 18px; flex-shrink: 0; }
+body.portrait .si-room        { font-size: 26px; }
+body.portrait .si-status      { font-size: 36px; margin-bottom: 2px; }
+body.portrait .si-timer       { font-size: 24px; margin-bottom: 6px; }
+body.portrait .ls-grid        { grid-template-columns: repeat(4, 1fr); gap: 4px; }
+body.portrait .ls-btn         { padding: 8px 4px; font-size: 12px; min-height: 36px; }
+body.portrait .meter-wrap     { margin-top: 6px; }
+body.portrait .sactions       { flex: 1; }
+body.portrait #btn-mute       { font-size: 40px; }
+body.portrait .iframe-wrap    { height: 100px; }
+body.portrait .sbot           { height: 60px; }
+body.portrait #btn-split, body.portrait #btn-leave, body.portrait #btn-end { font-size: 16px; }
+
+/* Portrait orientation transform — rotate entire page */
+body.portrait {
+  transform: rotate(90deg);
+  transform-origin: center center;
+  width: 100vh;
+  height: 100vw;
+  position: fixed;
+  top: calc((100vh - 100vw) / 2);
+  left: calc((100vw - 100vh) / 2);
+  overflow: hidden;
+}
 </style>
 </head>
 <body>
@@ -184,8 +209,8 @@ input:checked + .tog-slide:before { transform: translateX(20px); }
   <div class="idle-left">
     <div class="brand"><span class="brand-logo">WORDLY</span><span class="brand-sub">Presenter</span></div>
     <div class="scard">
-      <div class="scard-sid" id="card-sid" style="color:#3A6A9A">Not configured</div>
-      <div class="scard-sub" id="card-sub" style="color:#3A6A9A">Use Wordly Session Config below.</div>
+      <div class="scard-sub" id="card-sub" style="color:#3A6A9A">Not configured</div>
+      <div class="scard-sid" id="card-sid" style="color:#3A6A9A"></div>
       <div class="scard-dev" id="card-dev"></div>
     </div>
     <div class="net-line" id="net-line">Checking network...</div>
@@ -206,6 +231,7 @@ input:checked + .tog-slide:before { transform: translateX(20px); }
 <!-- STREAMING -->
 <div id="screen-streaming" class="screen">
   <div class="sinfo">
+    <div class="si-room"   id="si-room"></div>
     <div class="si-sid"    id="si-sid">—</div>
     <div class="si-status" id="si-status">● LIVE</div>
     <div class="si-timer"  id="si-timer">00:00:00</div>
@@ -218,7 +244,6 @@ input:checked + .tog-slide:before { transform: translateX(20px); }
     </div>
     <div class="ls-label">QUICK SWITCH</div>
     <div class="ls-grid" id="ls-grid"></div>
-    <button class="cap-pill" id="cap-pill" onclick="launchCaptions()">⛶ Caption Screen</button>
     <div class="meter-wrap">
       <div class="meter-label">AUDIO LEVEL</div>
       <div class="meter-track"><div class="meter-fill" id="meter-fill"></div></div>
@@ -303,7 +328,15 @@ let timerStart  = null;
 let cdTimer     = null;
 let muted       = false;
 let connected   = false;
-let intentional = false;
+// Stop-reason model: null | 'user' | 'schedule' | 'drop'
+// 'schedule' is reserved — not used yet, but defined here so scheduling
+// doesn't require a rewrite when added. All recovery decisions route
+// through shouldAutoRecover() — the single gate.
+let stopReason  = null;
+let retryCount  = 0;
+let retryTimer  = null;
+const MAX_RETRIES = 5;
+const RETRY_DELAYS = [100, 500, 1000, 2000, 5000];
 let currentLang = 'en';
 let alsEnabled  = true;
 let sessionLangs= [];
@@ -369,12 +402,13 @@ function loadIdle() {
   const ready = !!(sid && cfg.passcode && cfg.deviceId !== undefined && cfg.deviceId !== null && cfg.deviceId !== '');
   const sidEl = document.getElementById('card-sid');
   const subEl = document.getElementById('card-sub');
-  sidEl.textContent = sid || 'Not configured';
-  sidEl.style.color = sid ? '#FFF' : '#3A6A9A';
-  subEl.textContent = cfg.presenter || (sid ? '' : 'Use Wordly Session Config below.');
-  subEl.style.color = cfg.presenter ? '#7AAAD5' : '#3A6A9A';
+  subEl.textContent = cfg.presenter || (sid ? sid : 'Not configured');
+  subEl.style.color = cfg.presenter ? '#FFFFFF' : (sid ? '#FFFFFF' : '#3A6A9A');
+  sidEl.textContent = sid && cfg.presenter ? sid : '';
+  sidEl.style.color = '#7AAAD5';
   document.getElementById('card-dev').textContent = cfg.deviceLabel ? '🎙 '+cfg.deviceLabel : '';
   document.getElementById('si-sid').textContent   = sid || '—';
+  document.getElementById('si-room').textContent  = cfg.presenter || '';
   const online = navigator.onLine;
   const netEl  = document.getElementById('net-line');
   netEl.textContent = online ? '🌐 Network connected' : '🌐 No network connection';
@@ -390,6 +424,7 @@ function loadIdle() {
 function toggleOrientation() {
   const isPortrait = document.body.classList.toggle('portrait');
   localStorage.setItem('wordly_portrait', isPortrait ? '1' : '0');
+  // Rebuild the panel footer to reflect new state
   buildNetPanel();
 }
 
@@ -410,7 +445,15 @@ function buildNetPanel() {
       <div class="msg" id="test-msg">Press to test Wordly reachability.</div>
       <button class="btn-test" onclick="testNet()">Test Connection</button>
     </div>`;
-  document.getElementById('panel-foot').innerHTML = `<button class="btn-save" onclick="saveNet()">✓ Save & Close</button>`;
+  const isPortrait = document.body.classList.contains('portrait');
+  document.getElementById('panel-foot').innerHTML = `
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
+      <span style="font-size:13px;color:#5A8AAA;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px">ORIENTATION</span>
+      <button onclick="toggleOrientation()" style="padding:8px 18px;background:${isPortrait?'#2A6DB5':'#1B3A6B'};color:#FFF;border:none;border-radius:20px;font-size:14px;font-weight:bold;cursor:pointer">
+        ${isPortrait ? '⬛ Portrait (tap for Landscape)' : '▬ Landscape (tap for Portrait)'}
+      </button>
+    </div>
+    <button class="btn-save" onclick="saveNet()">✓ Save & Close</button>`;
 }
 async function testNet() {
   const el=document.getElementById('test-msg'); el.textContent='Testing...'; el.className='msg';
@@ -447,15 +490,7 @@ async function buildWordlyPanel() {
     <select id="w-dev">${devOpts}</select>
     <div class="msg" id="w-msg" style="margin-top:12px"></div>
     <button class="btn-test" onclick="testAudio()">Test Audio (2s)</button>`;
-  const isPortrait2 = document.body.classList.contains('portrait');
-  document.getElementById('panel-foot').innerHTML = `
-    <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
-      <span style="font-size:13px;color:#5A8AAA;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px">ORIENTATION</span>
-      <button onclick="toggleOrientation()" style="padding:8px 18px;background:${isPortrait2?'#2A6DB5':'#1B3A6B'};color:#FFF;border:none;border-radius:20px;font-size:14px;font-weight:bold;cursor:pointer">
-        ${isPortrait2 ? '⬛ Portrait (tap for Landscape)' : '▬ Landscape (tap for Portrait)'}
-      </button>
-    </div>
-    <button class="btn-save" onclick="saveWordly()">✓ Save & Close</button>`;
+  document.getElementById('panel-foot').innerHTML = `<button class="btn-save" onclick="saveWordly()">✓ Save & Close</button>`;
 
   document.getElementById('w-link').addEventListener('input', e => {
     const {sid,pass}=parseLink(e.target.value);
@@ -509,16 +544,6 @@ function saveWordly() {
 // ═══════════════════════════════════════
 // LANGUAGE GRID
 // ═══════════════════════════════════════
-function launchCaptions() {
-  const sid = cfg.sessionId || '';
-  if (!sid) return;
-  const url = `https://cmgillespie.github.io/Wordly_iframe_landing/?session=${sid}&kiosk=1`;
-  window.open(url, '_blank', 'width=1920,height=1080');
-  const btn = document.getElementById('cap-pill');
-  btn.classList.add('fired');
-  setTimeout(() => btn.classList.remove('fired'), 1000);
-}
-
 function buildLangGrid() {
   const grid=document.getElementById('ls-grid'); if(!grid) return;
   const langs=sessionLangs.slice(0,8);
@@ -603,6 +628,43 @@ function stopAudio() {
 // ═══════════════════════════════════════
 // WSS
 // ═══════════════════════════════════════
+// ── RECOVERY GATE ────────────────────────────────────────────────────────────
+// Single chokepoint for all auto-reconnect decisions.
+// Future: add schedule/override checks inside here — nowhere else.
+function shouldAutoRecover() {
+  return stopReason === 'drop';
+  // When scheduling is added:
+  //   if (stopReason === 'schedule') return scheduleWantsRestart();
+  //   if (stopReason === 'user') return false; // human wins
+}
+
+function scheduleReconnect() {
+  if (!shouldAutoRecover()) return;
+  if (retryCount >= MAX_RETRIES) {
+    showErr('Could not reconnect after multiple attempts. Check network and session.');
+    return;
+  }
+  const delay = RETRY_DELAYS[Math.min(retryCount, RETRY_DELAYS.length - 1)];
+  retryCount++;
+  document.getElementById('si-status').textContent = `◌ Reconnecting… (${retryCount}/${MAX_RETRIES})`;
+  showScreen('streaming'); // keep streaming screen visible during recovery
+  retryTimer = setTimeout(async () => {
+    if (!shouldAutoRecover()) return;
+    try {
+      stopAudio();
+      await startAudio();
+      startWSS();
+    } catch(e) {
+      scheduleReconnect(); // audio failed — try again
+    }
+  }, delay);
+}
+
+function cancelReconnect() {
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+  retryCount = 0;
+}
+
 function startWSS() {
   ws=new WebSocket(WSS_URL);
   ws.binaryType='arraybuffer';
@@ -616,10 +678,15 @@ function startWSS() {
     try {
       const d=JSON.parse(e.data);
       if(d.type==='status'&&d.action==='connect'){
-        if(!d.success){showErr(d.message||'Connection rejected.');return;}
+        if(!d.success){
+          stopReason='user'; // session gone/invalid — don't retry
+          cancelReconnect();
+          showErr(d.message||'Connection rejected.');
+          return;
+        }
         sessionLangs=d.languageCodes||[];
         alsEnabled=(d.dynamicLanguageSelection?.enabled!==false);
-        currentLang=''; // will be set from start response
+        currentLang='en';
         document.getElementById('als-tog').checked=alsEnabled;
         buildLangGrid();
         // Load iframe 1s after connect to avoid blocking audio
@@ -628,7 +695,6 @@ function startWSS() {
         ws.send(JSON.stringify({type:'start',languageCode:'en',sampleRate:TARGET_SAMPLE_RATE,dynamicLanguageSelection:{enabled:alsEnabled}}));
       } else if(d.type==='status'&&d.action==='start'){
         if(d.success){
-          if(d.languageCode) { currentLang=d.languageCode; buildLangGrid(); }
           connected=true;
           document.getElementById('si-status').textContent='● LIVE';
           if(!timerStart) startTimer();
@@ -639,19 +705,35 @@ function startWSS() {
       } else if(d.type==='error'){
         showErr(d.message||'Wordly error.');
       } else if(d.type==='end'){
-        if(!intentional) doEnded('portal');
+        // Session ended by portal — don't retry, session no longer exists
+        stopReason='user'; doEnded('portal');
       }
     } catch(ex){}
   };
-  ws.onerror=()=>showErr('WebSocket error — check network.');
-  ws.onclose=e=>{if(connected&&!intentional)showErr('Connection dropped ('+e.code+').');};
+  ws.onerror=()=>{
+    if(connected){ stopReason='drop'; scheduleReconnect(); }
+    else showErr('WebSocket error — check network.');
+  };
+  ws.onclose=e=>{
+    if(connected){
+      connected=false;
+      stopReason='drop';
+      scheduleReconnect();
+    }
+  };
 }
 
-function wssStop(){
+function wssStop(reason='user'){
+  stopReason=reason;
+  cancelReconnect();
   if(echoTimer){clearInterval(echoTimer);echoTimer=null;}
   connected=false;
   if(!ws||ws.readyState!==WebSocket.OPEN){ws=null;return;}
-  try{ws.onclose=null;ws.send(JSON.stringify({type:'stop'}));}catch(ex){}
+  try{
+    ws.onclose=null; // intentional stop — suppress drop handler
+    ws.onerror=null;
+    ws.send(JSON.stringify({type:'stop'}));
+  }catch(ex){}
 }
 function wssSend(msg){if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify(msg));}
 function wssDisconnect(end){
@@ -670,7 +752,8 @@ function showErr(msg){
 async function startSession(){
   if(document.getElementById('btn-start').classList.contains('disabled')) return;
   if(audioCtx||stream) return; // guard double-tap
-  muted=false;intentional=false;connected=false;
+  muted=false;// stopReason reset on returnToIdle
+  connected=false;
   document.getElementById('screen-streaming').classList.remove('muted');
   document.getElementById('btn-mute').textContent='MUTE';
   document.getElementById('btn-mute').classList.remove('muted');
@@ -710,14 +793,14 @@ function doSplit(){
 }
 
 function doLeave(){
-  intentional=true;stopAudio();stopTimer();wssStop();
+  stopAudio();stopTimer();wssStop('user');
   document.getElementById('s-iframe').src='about:blank';
   wssDisconnect(false);
   returnToIdle();
 }
 
 function doEnd(){
-  intentional=true;stopAudio();stopTimer();wssStop();
+  stopAudio();stopTimer();wssStop('user');
   document.getElementById('s-iframe').src='about:blank';
   wssDisconnect(true);
   doEnded('local');
@@ -734,7 +817,7 @@ function doEnded(reason){
 }
 
 function doQuit(){
-  stopAudio();if(ws){wssSend({type:'stop'});ws.close();ws=null;}
+  wssStop('user');stopAudio();wssDisconnect(false);
   window.close();
 }
 
@@ -762,11 +845,13 @@ function startCd(){
   tick();
 }
 function cancelCd(){clearTimeout(cdTimer);cdTimer=null;const el=document.getElementById('en-cd');if(el)el.textContent='Press button when ready.';}
-function returnToIdle(){cancelCd();intentional=false;loadIdle();showScreen('idle');}
+function returnToIdle(){cancelCd();// stopReason reset on returnToIdle
+  loadIdle();showScreen('idle');}
 
 // ═══════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════
+// Apply saved orientation on load
 if (localStorage.getItem('wordly_portrait') === '1') {
   document.body.classList.add('portrait');
 }

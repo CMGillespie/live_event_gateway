@@ -3,144 +3,93 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LEG Mission Control — Admin</title>
+<title>LEG Mission Control</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛰️</text></svg>">
 <!--
-  Live Event Gateway — Admin Console
-  v0.1 — Google sign-in, live agent roster, remote Start/Mute/Split/Leave/End
+  Live Event Gateway — Admin / Mission Control
+  v0.3 — Mission-Control look, Firebase-wired (realtime, no apikey).
+  Google auth · live agent table · arm-or-fire bulk · Attend/Present · drop alerts · confirms on all actions.
 -->
+<script src="https://cdn.tailwindcss.com"></script>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #0D1B2E; --panel: #162540; --panel2: #1B3A6B; --line: #24406e;
-    --text: #FFFFFF; --dim: #8AAACC; --dim2: #5A7A9A;
-    --accent: #2A6DB5; --accent-hi: #5AA0E9;
-    --ok: #33cc77; --warn: #FFAA20; --err: #FF6666;
-  }
-  body { background: var(--bg); color: var(--text); font-family: Arial, Helvetica, sans-serif; min-height: 100vh; }
-  [hidden] { display: none !important; }   /* beats #signin display:flex so the panel actually hides */
-
-  /* ── Top bar ── */
-  header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 22px; background: var(--panel); border-bottom: 2px solid var(--line);
-    flex-wrap: wrap; gap: 10px;
-  }
-  .brand { display: flex; align-items: baseline; gap: 10px; }
-  .brand-logo { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; }
-  .brand-sub  { font-size: 13px; color: var(--accent-hi); }
-  .who { font-size: 13px; color: var(--dim); display: flex; align-items: center; gap: 12px; }
-  .btn-out { background: var(--panel2); color: var(--text); border: none; border-radius: 6px; padding: 8px 14px; font-size: 13px; font-weight: bold; cursor: pointer; }
-  .btn-out:hover { background: #24487e; }
-  .btn-clear { background: var(--panel2); color: var(--dim); border: none; border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: bold; cursor: pointer; }
-  .btn-clear:hover { background: #3a2a10; color: var(--warn); }
-  .card-top-right { display: flex; align-items: center; gap: 8px; }
-  .card-x { background: none; border: none; color: var(--dim2); font-size: 15px; line-height: 1; cursor: pointer; padding: 3px 6px; border-radius: 4px; }
-  .card-x:hover { background: #3a1a1a; color: var(--err); }
-
-  /* ── Sign-in ── */
-  #signin { min-height: 80vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; text-align: center; padding: 30px; }
-  #signin h1 { font-size: 28px; font-weight: 900; }
-  #signin p  { color: var(--dim); font-size: 15px; max-width: 420px; line-height: 1.5; }
-  .btn-google {
-    display: flex; align-items: center; gap: 12px;
-    background: #FFFFFF; color: #202124; border: none; border-radius: 8px;
-    padding: 14px 24px; font-size: 16px; font-weight: bold; cursor: pointer;
-  }
-  .btn-google:hover { background: #f2f2f2; }
-  .signin-err { color: var(--err); font-size: 13px; min-height: 18px; }
-
-  /* ── Dashboard ── */
-  #dash { padding: 20px 22px 40px; }
-  .dash-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
-  .dash-head h2 { font-size: 18px; font-weight: bold; }
-  .count-pill { font-size: 13px; color: var(--dim); background: var(--panel); padding: 6px 12px; border-radius: 14px; }
-
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
-
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; border-left: 5px solid var(--dim2); }
-  .card.online { border-left-color: var(--ok); }
-  .card.offline { border-left-color: var(--dim2); opacity: 0.7; }
-
-  .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
-  .card-label { font-size: 18px; font-weight: bold; }
-  .card-id { font-size: 11px; color: var(--dim2); font-family: monospace; margin-top: 2px; }
-  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--dim2); flex-shrink: 0; margin-top: 6px; }
-  .dot.online { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
-
-  .status-pill { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; background: var(--panel2); color: var(--dim); }
-  .status-pill.live { background: #16451f; color: #66ee88; }
-  .status-pill.muted { background: #4a3a10; color: #ffcc55; }
-  .status-pill.connecting { background: #16345f; color: #7ab8ff; }
-  .status-pill.error { background: #4a1414; color: #ff8888; }
-  .status-pill.ended, .status-pill.idle { background: var(--panel2); color: var(--dim); }
-  .status-pill.offline { background: #241a1a; color: #997777; }
-
-  .meta { font-size: 13px; color: var(--dim); margin: 10px 0; line-height: 1.7; }
-  .meta b { color: var(--text); font-weight: bold; }
-  .meta .mono { font-family: monospace; letter-spacing: 1px; }
-  .meta .muteflag { color: var(--warn); font-weight: bold; }
-  .notready { color: var(--warn); font-size: 12px; }
-
-  .cmds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
-  .cmd { padding: 11px 6px; border: none; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; color: #fff; }
-  .cmd:disabled { opacity: 0.35; cursor: not-allowed; }
-  .cmd-start { background: #1b5caa; }
-  .cmd-mute  { background: #7a5a10; }
-  .cmd-unmute{ background: #2e7d32; }
-  .cmd-split { background: #0d5a0d; }
-  .cmd-leave { background: #1a2a50; }
-  .cmd-end   { background: #7a1414; }
-  .cmd:not(:disabled):hover { filter: brightness(1.18); }
-
-  .result { margin-top: 10px; font-size: 12px; color: var(--dim2); min-height: 16px; }
-  .result.ok  { color: var(--ok); }
-  .result.err { color: var(--err); }
-
-  .empty { text-align: center; color: var(--dim2); padding: 60px 20px; font-size: 15px; }
-  code { background: #060e1a; padding: 2px 6px; border-radius: 4px; font-family: monospace; color: var(--accent-hi); }
+  .active-row { background-color: rgba(34,197,94,0.08); border-left: 4px solid #16a34a; }
+  .error-row  { background-color: rgba(239,68,68,0.07); border-left: 4px solid #dc2626; }
+  .offline-row{ opacity: 0.55; }
+  [hidden] { display: none !important; }
+  .pulse { animation: pulse 1.4s ease-in-out infinite; } @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
 </style>
 </head>
-<body>
+<body class="bg-white text-slate-900 antialiased p-3">
 
-<div id="signin">
-  <div class="brand" style="justify-content:center">
-    <span class="brand-logo">LIVE EVENT GATEWAY</span>
-    <span class="brand-sub">Mission Control</span>
-  </div>
-  <h1>Admin Console</h1>
-  <p>Sign in with your Wordly Google account to see and control room agents.</p>
-  <button class="btn-google" onclick="doSignIn()">
+<!-- ══ SIGN IN ══ -->
+<div id="signin" class="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center gap-5 p-8 text-center">
+  <div class="text-2xl font-black tracking-tight">LIVE EVENT GATEWAY <span class="text-blue-600 font-bold text-lg">Mission Control</span></div>
+  <p class="text-slate-500 max-w-sm">Sign in with your Wordly Google account to see and control room agents.</p>
+  <button onclick="doSignIn()" class="flex items-center gap-3 bg-white border shadow-sm rounded-lg px-6 py-3 text-base font-bold hover:bg-slate-50">
     <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.7 1.22 9.2 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
     Sign in with Google
   </button>
-  <div class="signin-err" id="signin-err"></div>
+  <div class="text-red-500 text-sm" id="signin-err"></div>
 </div>
 
+<!-- ══ APP ══ -->
 <div id="app" hidden>
-  <header>
-    <div class="brand">
-      <span class="brand-logo">LIVE EVENT GATEWAY</span>
-      <span class="brand-sub">Mission Control</span>
+  <nav class="flex justify-between items-center mb-4 pb-2 border-b border-slate-200">
+    <div class="text-xl font-black tracking-tight">LIVE EVENT GATEWAY <span class="text-blue-600 font-bold text-sm align-middle">Mission Control</span></div>
+    <div class="flex items-center gap-4">
+      <span class="text-sm text-slate-500" id="who-email"></span>
+      <span class="flex items-center gap-1.5 text-xs font-bold text-green-600"><span class="w-2 h-2 rounded-full bg-green-500 pulse"></span>REALTIME</span>
+      <button onclick="doSignOut()" class="bg-slate-900 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-red-600 transition-colors">Sign out</button>
     </div>
-    <div class="who">
-      <span id="who-email"></span>
-      <button class="btn-out" onclick="doSignOut()">Sign out</button>
+  </nav>
+
+  <header class="mb-3 flex flex-wrap gap-3 items-center bg-slate-100 p-2 rounded-xl border border-slate-200">
+    <div class="w-full md:w-64">
+      <input type="text" id="search" placeholder="Search room, session, device…" class="w-full px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-base">
     </div>
-  </header>
-  <div id="dash">
-    <div class="dash-head">
-      <h2>Room Agents</h2>
-      <div style="display:flex;align-items:center;gap:10px">
-        <span class="count-pill" id="count-pill">0 agents</span>
-        <button class="btn-clear" onclick="clearOffline()">Clear offline</button>
+
+    <!-- Bulk arm-or-fire -->
+    <div class="flex items-center gap-2">
+      <span class="text-xs font-black uppercase text-slate-400 tracking-widest pr-1">Bulk</span>
+      <button id="bulk-start" onclick="armOrFire('start')" class="border px-3 py-2 rounded-lg text-xs font-bold uppercase bg-white hover:bg-slate-50">▶ Start</button>
+      <button id="bulk-mute"  onclick="armOrFire('mute')"  class="border px-3 py-2 rounded-lg text-xs font-bold uppercase bg-white hover:bg-slate-50">⏸ Mute</button>
+      <button id="bulk-split" onclick="armOrFire('split')" class="border px-3 py-2 rounded-lg text-xs font-bold uppercase bg-white hover:bg-slate-50">✂ Split</button>
+      <button id="bulk-end"   onclick="armOrFire('end')"   class="border px-3 py-2 rounded-lg text-xs font-bold uppercase bg-white hover:bg-slate-50">■ End</button>
+      <button id="bulk-cancel" onclick="cancelArm()" hidden class="text-slate-500 hover:text-slate-800 px-2 text-lg font-black" title="Cancel">&times;</button>
+    </div>
+
+    <label class="flex items-center gap-2 px-2 cursor-pointer"><input type="checkbox" id="alertDrops" class="w-5 h-5 cursor-pointer"><span class="text-xs font-black uppercase">Alert Drops</span></label>
+    <button onclick="clearOffline()" class="border px-3 py-2 rounded-lg text-xs font-bold uppercase bg-white hover:bg-slate-50 text-slate-500">Clear offline</button>
+
+    <div class="flex gap-3 items-center ml-auto">
+      <div id="activeBox" onclick="toggleFilter('active')" class="cursor-pointer bg-green-50 border border-green-200 px-4 py-1.5 rounded-lg text-center">
+        <span class="text-xs font-black text-green-700 uppercase">Active</span><p id="activeCount" class="text-2xl font-black text-green-900 leading-none">0</p>
+      </div>
+      <div id="inactiveBox" onclick="toggleFilter('inactive')" class="cursor-pointer bg-white border px-4 py-1.5 rounded-lg text-center">
+        <span class="text-xs font-black text-slate-500 uppercase">Inactive</span><p id="inactiveCount" class="text-2xl font-black leading-none">0</p>
       </div>
     </div>
-    <div class="grid" id="grid"></div>
-    <div class="empty" id="empty">
-      No agents checked in yet. Open the agent page (<code>index.html</code>) on a device — it will appear here automatically.
-    </div>
+  </header>
+
+  <div id="dropBanner" hidden class="mb-3 bg-red-600 text-white rounded-xl p-3 space-y-1"></div>
+
+  <div class="overflow-x-auto border border-slate-200 rounded-xl bg-white shadow-sm">
+    <table class="w-full text-left text-sm">
+      <thead class="bg-slate-900 text-slate-200 text-xs uppercase font-black tracking-widest">
+        <tr>
+          <th class="px-2 py-3 w-10"><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)" hidden class="w-4 h-4 cursor-pointer"></th>
+          <th class="px-3 py-3 w-28">Status</th>
+          <th class="px-3 py-3">Room</th>
+          <th class="px-3 py-3">Session</th>
+          <th class="px-3 py-3">Device</th>
+          <th class="px-3 py-3 w-32">Session Age</th>
+          <th class="px-3 py-3 text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="tbody" class="divide-y divide-slate-100"></tbody>
+    </table>
   </div>
+  <div id="empty" class="text-center text-slate-400 italic font-bold uppercase tracking-widest py-16" hidden>No agents checked in yet — open the agent page on a device.</div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
@@ -152,17 +101,27 @@
   const auth = firebase.auth();
   let agentsRef = null;
 
-  // ── Auth ──────────────────────────────────────────────
+  // ── State ──
+  let agentData   = {};     // id -> agent record (latest)
+  let prevStatus  = {};     // id -> last seen status (for drop detection)
+  let selected    = {};     // id -> true (bulk selection)
+  let armMode     = null;   // null | 'start' | 'mute' | 'split' | 'end'
+  let filter      = null;   // null | 'active' | 'inactive'
+  let intentional = {};     // id -> true : we commanded end/leave, suppress drop alert
+  let dropAlerts  = [];     // {id, name, at}
+  let audioCtx    = null;
+
+  const STREAMING = ['live','muted','connecting','reconnecting'];
+  const isStreaming = s => STREAMING.indexOf((s||'').toLowerCase()) !== -1;
+
+  // ── Auth ──
   function doSignIn() {
     document.getElementById('signin-err').textContent = '';
-    const provider = new firebase.auth.GoogleAuthProvider();
-    auth.signInWithPopup(provider).catch(function (e) {
-      document.getElementById('signin-err').textContent = e.message || 'Sign-in failed.';
-    });
+    auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())
+      .catch(e => document.getElementById('signin-err').textContent = e.message || 'Sign-in failed.');
   }
   function doSignOut() { auth.signOut(); }
-
-  auth.onAuthStateChanged(function (user) {
+  auth.onAuthStateChanged(user => {
     if (user) {
       document.getElementById('signin').hidden = true;
       document.getElementById('app').hidden = false;
@@ -175,114 +134,278 @@
     }
   });
 
-  // ── Live agent roster ────────────────────────────────
+  // ── Realtime data ──
   function startWatching() {
     if (agentsRef) return;
     agentsRef = db.ref('agents');
-    agentsRef.on('value', function (snap) { render(snap.val() || {}); });
+    agentsRef.on('value', snap => onData(snap.val() || {}));
   }
-
-  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]); }); }
-  function ago(ts) {
-    if (!ts) return '—';
-    const s = Math.floor((Date.now() - ts) / 1000);
-    if (s < 5) return 'just now';
-    if (s < 60) return s + 's ago';
-    if (s < 3600) return Math.floor(s/60) + 'm ago';
-    return Math.floor(s/3600) + 'h ago';
-  }
-
-  function render(agents) {
-    const ids = Object.keys(agents);
-    const grid = document.getElementById('grid');
-    document.getElementById('empty').hidden = ids.length > 0;
-    document.getElementById('count-pill').textContent = ids.length + (ids.length === 1 ? ' agent' : ' agents');
-
-    grid.innerHTML = ids.map(function (id) {
+  function onData(agents) {
+    // Drop detection: streaming -> offline/error that we didn't cause
+    Object.keys(agents).forEach(id => {
       const a = agents[id] || {};
-      const online = !!a.online;
-      const status = (a.status || 'idle').toLowerCase();
-      const streaming = ['live','muted','connecting'].indexOf(status) !== -1;
-      const res = a.lastResult || {};
-
-      const dis = online ? '' : 'disabled';
-      // command enable logic mirrors agent-side guards
-      const canStart  = online && !streaming && a.configReady;
-      const canMute   = online && status === 'live';
-      const canUnmute = online && status === 'muted';
-      const canSplit  = online && (status === 'live' || status === 'muted');
-      const canLeave  = online && streaming;
-      const canEnd    = online && streaming;
-
-      return `
-        <div class="card ${online ? 'online' : 'offline'}">
-          <div class="card-top">
-            <div>
-              <div class="card-label">${esc(a.label || id)}</div>
-              <div class="card-id">${esc(id)}</div>
-            </div>
-            <div class="card-top-right">
-              <div class="dot ${online ? 'online' : ''}" title="${online ? 'online' : 'offline'}"></div>
-              <button class="card-x" title="Remove card" onclick="removeAgent('${id}')">✕</button>
-            </div>
-          </div>
-
-          <span class="status-pill ${online ? status : 'offline'}">${online ? esc(status) : 'offline'}</span>
-
-          <div class="meta">
-            <div>Session: <b class="mono">${esc(a.sessionId || '—')}</b></div>
-            <div>Device: <b>${esc(a.deviceLabel || '—')}</b></div>
-            ${a.muted ? '<div class="muteflag">⏸ MUTED</div>' : ''}
-            ${(!a.configReady && online) ? '<div class="notready">⚠ device not configured (set session + audio locally)</div>' : ''}
-            <div style="color:var(--dim2);font-size:11px">updated ${ago(a.updatedAt)}</div>
-          </div>
-
-          <div class="cmds">
-            <button class="cmd cmd-start"  ${canStart?'':'disabled'} onclick="cmd('${id}','start')">▶ Start</button>
-            <button class="cmd cmd-mute"   ${canMute?'':'disabled'} onclick="cmd('${id}','mute')">⏸ Mute</button>
-            <button class="cmd cmd-unmute" ${canUnmute?'':'disabled'} onclick="cmd('${id}','unmute')">▶ Unmute</button>
-            <button class="cmd cmd-split"  ${canSplit?'':'disabled'} onclick="cmd('${id}','split')">✂ Split</button>
-            <button class="cmd cmd-leave"  ${canLeave?'':'disabled'} onclick="cmd('${id}','leave')">⤴ Leave</button>
-            <button class="cmd cmd-end"    ${canEnd?'':'disabled'} onclick="confirmEnd('${id}')">■ End</button>
-          </div>
-
-          <div class="result ${res.ok === false ? 'err' : (res.action ? 'ok' : '')}">
-            ${res.action ? (esc(res.action) + ': ' + esc(res.note || (res.ok ? 'ok' : 'failed'))) : ''}
-          </div>
-        </div>`;
-    }).join('');
+      const now = (a.online ? (a.status || 'idle') : 'offline').toLowerCase();
+      const was = prevStatus[id];
+      const dropped = was && isStreaming(was) && (now === 'offline' || now === 'error');
+      if (dropped) {
+        if (intentional[id]) { delete intentional[id]; }
+        else if (document.getElementById('alertDrops').checked) triggerDrop(id, a);
+      }
+      prevStatus[id] = now;
+    });
+    // prune stale
+    Object.keys(prevStatus).forEach(id => { if (!agents[id]) delete prevStatus[id]; });
+    Object.keys(selected).forEach(id => { if (!agents[id]) delete selected[id]; });
+    agentData = agents;
+    render();
   }
 
-  // ── Send a command ───────────────────────────────────
-  function cmd(agentId, action) {
-    const id = 'cmd-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
-    db.ref('agents/' + agentId + '/command').set({
-      id: id,
-      action: action,
-      by: (auth.currentUser && auth.currentUser.email) || 'unknown',
+  // ── Helpers ──
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  function statusOf(a){ return a.online ? (a.status || 'idle').toLowerCase() : 'offline'; }
+  function badge(status){
+    const m = {
+      live:'bg-green-100 text-green-700', muted:'bg-amber-100 text-amber-700',
+      connecting:'bg-blue-100 text-blue-700', reconnecting:'bg-orange-100 text-orange-700 pulse',
+      error:'bg-red-100 text-red-700', ended:'bg-slate-100 text-slate-500',
+      idle:'bg-slate-100 text-slate-600', offline:'bg-slate-200 text-slate-400'
+    };
+    return m[status] || 'bg-slate-100 text-slate-500';
+  }
+  function fmtDur(ms){
+    if (ms < 0) ms = 0;
+    const s = Math.floor(ms/1000);
+    return [Math.floor(s/3600),Math.floor((s%3600)/60),s%60].map(n=>String(n).padStart(2,'0')).join(':');
+  }
+  function ago(ts){
+    if(!ts) return '';
+    const s = Math.floor((Date.now()-ts)/1000);
+    if(s<60) return s+'s ago'; if(s<3600) return Math.floor(s/60)+'m ago'; return Math.floor(s/3600)+'h ago';
+  }
+  // which agents are eligible for the currently-armed bulk action
+  function eligible(a){
+    const st = statusOf(a);
+    if (!a.online) return false;
+    switch(armMode){
+      case 'start': return st==='idle' && a.configReady;
+      case 'mute':  return st==='live';
+      case 'split': return st==='live' || st==='muted';
+      case 'end':   return isStreaming(st);
+      default:      return false;
+    }
+  }
+
+  // ── Render ──
+  function render(){
+    const q = document.getElementById('search').value.toLowerCase();
+    const ids = Object.keys(agentData);
+    let active = 0, inactive = 0;
+    ids.forEach(id => { isStreaming(statusOf(agentData[id])) ? active++ : inactive++; });
+    document.getElementById('activeCount').textContent = active;
+    document.getElementById('inactiveCount').textContent = inactive;
+    document.title = (active>0?`(${active}) `:'') + 'LEG Mission Control';
+
+    let rows = ids.map(id => Object.assign({id}, agentData[id])).filter(a => {
+      const st = statusOf(a);
+      if (filter==='active' && !isStreaming(st)) return false;
+      if (filter==='inactive' && isStreaming(st)) return false;
+      const hay = [(a.label||''),(a.sessionId||''),(a.deviceLabel||''),id].join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+    // live first, then by name
+    rows.sort((a,b) => (isStreaming(statusOf(b))?1:0)-(isStreaming(statusOf(a))?1:0) || String(a.label||'').localeCompare(String(b.label||'')));
+
+    const tbody = document.getElementById('tbody');
+    document.getElementById('empty').hidden = ids.length !== 0;
+    tbody.innerHTML = rows.map(a => rowHtml(a)).join('');
+    updateArmUI();
+    updateFilterUI();
+    tick(); // paint ages immediately
+  }
+
+  function rowHtml(a){
+    const id = a.id, st = statusOf(a);
+    const streaming = isStreaming(st);
+    const rowCls = st==='error' ? 'error-row' : (streaming ? 'active-row' : (a.online?'':'offline-row'));
+    const showCb = armMode && eligible(a);
+    const checked = selected[id] ? 'checked' : '';
+    const sid = a.sessionId || '';
+    const pass = a.passcode || '';
+    const attend  = sid ? `https://attend.wordly.ai/enter/${encodeURIComponent(sid)}` : '';
+    const present = sid ? `https://join.wordly.ai/enter/${encodeURIComponent(sid)}${pass?`?key=${encodeURIComponent(pass)}`:''}` : '';
+
+    // per-row action enablement
+    const canStart  = a.online && st==='idle' && a.configReady;
+    const canMute   = a.online && st==='live';
+    const canUnmute = a.online && st==='muted';
+    const canSplit  = a.online && (st==='live'||st==='muted');
+    const canLeave  = a.online && streaming;
+    const canEnd    = a.online && streaming;
+    const b = (ok,cls,label,act) => `<button ${ok?'':'disabled'} onclick="rowCmd('${id}','${act}')" class="px-2 py-1 rounded text-xs font-bold ${ok?cls:'bg-slate-100 text-slate-300 cursor-not-allowed'}">${label}</button>`;
+
+    return `
+      <tr class="${rowCls}">
+        <td class="px-2 py-3">${showCb?`<input type="checkbox" ${checked} onchange="toggleSel('${id}',this)" class="w-4 h-4 cursor-pointer">`:''}</td>
+        <td class="px-3 py-3"><span class="px-2 py-0.5 rounded text-xs font-black uppercase ${badge(st)}">${st}</span>${a.muted&&streaming?'<div class="text-[10px] text-amber-600 font-bold mt-1">MUTED</div>':''}</td>
+        <td class="px-3 py-3">
+          <div class="font-bold text-base">${esc(a.label||'—')}</div>
+          <div class="text-[11px] text-slate-400 font-mono">${esc(id)}</div>
+          ${(!a.configReady && a.online)?'<div class="text-[11px] text-amber-600 font-bold">⚠ not configured</div>':''}
+        </td>
+        <td class="px-3 py-3"><span class="font-mono font-bold text-blue-600 tracking-tight">${esc(sid||'—')}</span></td>
+        <td class="px-3 py-3 text-slate-600">${esc(a.deviceLabel||'—')}</td>
+        <td class="px-3 py-3 age-cell" data-id="${id}" data-started="${streaming&&a.startedAt?a.startedAt:''}" data-ended="${(!streaming&&a.endedAt)?a.endedAt:''}"></td>
+        <td class="px-3 py-3">
+          <div class="flex items-center justify-end gap-1.5 whitespace-nowrap">
+            ${attend?`<a href="${attend}" target="_blank" class="text-blue-600 text-xs font-black uppercase hover:underline px-1" title="Listen in">Attend</a>`:''}
+            ${present?`<a href="${present}" target="_blank" class="bg-slate-900 text-white px-2 py-1 rounded text-xs font-black uppercase hover:bg-blue-600" title="Join as presenter">Present</a>`:''}
+            <span class="w-px h-5 bg-slate-200 mx-1"></span>
+            ${b(canStart,'bg-blue-600 text-white','▶','start')}
+            ${canUnmute?b(true,'bg-green-600 text-white','▶ Unmute','unmute'):b(canMute,'bg-amber-500 text-white','⏸','mute')}
+            ${b(canSplit,'bg-green-700 text-white','✂','split')}
+            ${b(canLeave,'bg-slate-700 text-white','⤴','leave')}
+            ${b(canEnd,'bg-red-600 text-white','■ End','end')}
+            <button onclick="removeAgent('${id}')" title="Remove card" class="text-slate-300 hover:text-red-500 px-1 text-sm">✕</button>
+          </div>
+        </td>
+      </tr>`;
+  }
+
+  // ── Age ticker (updates every second without full re-render) ──
+  function tick(){
+    document.querySelectorAll('.age-cell').forEach(td => {
+      const started = td.getAttribute('data-started');
+      const ended   = td.getAttribute('data-ended');
+      if (started) td.innerHTML = `<span class="font-mono font-bold text-slate-800">${fmtDur(Date.now()-Number(started))}</span>`;
+      else if (ended) td.innerHTML = `<span class="text-slate-400 text-xs">ended ${ago(Number(ended))}</span>`;
+      else td.innerHTML = '<span class="text-slate-300">—</span>';
+    });
+  }
+  setInterval(tick, 1000);
+
+  // ── Filters ──
+  function toggleFilter(w){ filter = (filter===w)?null:w; render(); }
+  function updateFilterUI(){
+    document.getElementById('activeBox').classList.toggle('ring-2', filter==='active');
+    document.getElementById('activeBox').classList.toggle('ring-green-500', filter==='active');
+    document.getElementById('inactiveBox').classList.toggle('ring-2', filter==='inactive');
+    document.getElementById('inactiveBox').classList.toggle('ring-slate-400', filter==='inactive');
+  }
+
+  // ── Confirm helper ──
+  function sure(msg){ return window.confirm(msg); }
+
+  // ── Per-row command ──
+  function rowCmd(id, action){
+    const a = agentData[id] || {};
+    const name = a.label || id;
+    const verb = { start:'Start', mute:'Mute', unmute:'Unmute', split:'Split transcript for', leave:'Leave (session continues) for', end:'END SESSION for everyone in' }[action] || action;
+    if (!sure(`${verb} “${name}”?`)) return;
+    if (action==='end' || action==='leave') intentional[id] = true;
+    sendCmd(id, action);
+  }
+  function sendCmd(id, action){
+    const cid = 'cmd-' + Date.now() + '-' + Math.random().toString(36).slice(2,6);
+    db.ref('agents/'+id+'/command').set({
+      id: cid, action, by: (auth.currentUser&&auth.currentUser.email)||'unknown',
       ts: firebase.database.ServerValue.TIMESTAMP
     });
   }
-  function confirmEnd(agentId) {
-    if (confirm('End the session for everyone in this room? Attendees will be disconnected.')) cmd(agentId, 'end');
+
+  // ── Bulk arm-or-fire ──
+  function armOrFire(mode){
+    if (armMode === null){ armMode = mode; render(); return; }
+    if (armMode !== mode) return;               // another mode armed; ignore
+    const ids = Object.keys(selected);
+    if (!ids.length){ cancelArm(); return; }
+    const verb = { start:'Start', mute:'Mute', split:'Split', end:'END SESSION for' }[mode];
+    if (!sure(`${verb} ${ids.length} selected room${ids.length===1?'':'s'}?`)) return;
+    ids.forEach(id => { if (mode==='end') intentional[id]=true; sendCmd(id, mode); });
+    cancelArm();
+  }
+  function cancelArm(){ armMode = null; selected = {}; render(); }
+  function toggleSel(id, el){ if (el.checked) selected[id]=true; else delete selected[id]; updateArmUI(); }
+  function toggleSelectAll(el){
+    document.querySelectorAll('#tbody input[type=checkbox]').forEach(cb => { cb.checked = el.checked; cb.dispatchEvent(new Event('change')); });
+  }
+  function updateArmUI(){
+    const bulk = ['start','mute','split','end'];
+    document.getElementById('bulk-cancel').hidden = armMode === null;
+    document.getElementById('selectAll').hidden = armMode === null;
+    const count = Object.keys(selected).length;
+    bulk.forEach(m => {
+      const btn = document.getElementById('bulk-'+m);
+      const on = armMode === m;
+      const dim = armMode && !on;
+      btn.className = `border px-3 py-2 rounded-lg text-xs font-bold uppercase ${on?'bg-blue-600 text-white border-blue-600':'bg-white hover:bg-slate-50'} ${dim?'opacity-40 pointer-events-none':''}`;
+    });
+    if (armMode){
+      const lbl = { start:'▶ Start', mute:'⏸ Mute', split:'✂ Split', end:'■ End' }[armMode];
+      document.getElementById('bulk-'+armMode).textContent = `${lbl} (${count})`;
+    } else {
+      document.getElementById('bulk-start').textContent='▶ Start';
+      document.getElementById('bulk-mute').textContent='⏸ Mute';
+      document.getElementById('bulk-split').textContent='✂ Split';
+      document.getElementById('bulk-end').textContent='■ End';
+    }
   }
 
-  // ── Clear cards ──────────────────────────────────────
-  function removeAgent(id) {
-    if (!confirm('Remove this card?\n(If the device is still open, it will re-appear on its next check-in.)')) return;
-    db.ref('agents/' + id).remove();
+  // ── Drop alerts ──
+  function triggerDrop(id, a){
+    dropAlerts.push({ id, name: a.label||id, at: new Date() });
+    renderDropBanner(); beep();
+    if (window.Notification && Notification.permission==='granted') {
+      try { new Notification('Room dropped', { body: `${a.label||id} is no longer live.` }); } catch(e){}
+    }
   }
-  function clearOffline() {
-    db.ref('agents').once('value').then(function (snap) {
+  function renderDropBanner(){
+    const el = document.getElementById('dropBanner');
+    if (!dropAlerts.length){ el.hidden = true; el.innerHTML=''; return; }
+    el.hidden = false;
+    el.innerHTML = dropAlerts.map((d,i)=>`<div class="flex items-center justify-between">
+      <span class="font-black text-sm">⚠ DROPPED: ${esc(d.name)} — ${d.at.toLocaleTimeString()}</span>
+      <button onclick="ackDrop(${i})" class="bg-white/20 hover:bg-white/30 px-2 py-1 rounded text-xs font-bold uppercase">Acknowledge</button></div>`).join('');
+  }
+  function ackDrop(i){ dropAlerts.splice(i,1); renderDropBanner(); }
+  function beep(){
+    try{
+      if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+      const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+      o.connect(g); g.connect(audioCtx.destination);
+      g.gain.setValueAtTime(0.3,audioCtx.currentTime);
+      o.frequency.setValueAtTime(880,audioCtx.currentTime);
+      o.frequency.setValueAtTime(660,audioCtx.currentTime+0.15);
+      g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.6);
+      o.start(); o.stop(audioCtx.currentTime+0.6);
+    }catch(e){}
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    const ad = document.getElementById('alertDrops');
+    if (ad) ad.addEventListener('change', e => {
+      if (e.target.checked){
+        if(!audioCtx){ try{ audioCtx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+        if (window.Notification && Notification.permission==='default') Notification.requestPermission();
+      }
+    });
+  });
+
+  // ── Clear / remove cards ──
+  function removeAgent(id){
+    if (!sure('Remove this card?\n(If the device is still open, it re-appears on its next check-in.)')) return;
+    db.ref('agents/'+id).remove();
+  }
+  function clearOffline(){
+    db.ref('agents').once('value').then(snap => {
       const all = snap.val() || {};
-      const offline = Object.keys(all).filter(function (k) { return !all[k].online; });
-      if (offline.length === 0) { alert('No offline agents to clear.'); return; }
-      if (!confirm('Remove ' + offline.length + ' offline agent card' + (offline.length === 1 ? '' : 's') + '?')) return;
-      const updates = {};
-      offline.forEach(function (k) { updates[k] = null; });  // null = delete, one atomic write
+      const offline = Object.keys(all).filter(k => !all[k].online);
+      if (!offline.length){ alert('No offline agents to clear.'); return; }
+      if (!sure(`Remove ${offline.length} offline card${offline.length===1?'':'s'}?`)) return;
+      const updates = {}; offline.forEach(k => updates[k]=null);
       db.ref('agents').update(updates);
     });
   }
+
+  document.getElementById('search').addEventListener('input', render);
 </script>
 </body>
 </html>

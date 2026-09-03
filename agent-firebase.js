@@ -41,33 +41,50 @@
   }
   function deriveStatus() {
     switch (activeScreen()) {
-      case 'screen-streaming':
+      case 'screen-streaming': {
+        // Appliance shows "◌ Reconnecting… (n/5)" in #si-status during recovery
+        const st = (document.getElementById('si-status') || {}).textContent || '';
+        if (/reconnect/i.test(st)) return 'reconnecting';
         if (isMuted())     return 'muted';
         if (isConnected()) return 'live';
         return 'connecting';
+      }
       case 'screen-error': return 'error';
       case 'screen-ended': return 'ended';
       default:             return 'idle';
     }
+  }
+  function isStreamingStatus(s) {
+    return s === 'live' || s === 'muted' || s === 'connecting' || s === 'reconnecting';
   }
   function configReady() {
     const c = getCfg();
     return !!(c.sessionId && c.passcode && c.deviceId !== undefined && c.deviceId !== null && c.deviceId !== '');
   }
 
+  // ---- Session start/stop timestamps (client clock, stamped once per transition) ----
+  let lastStatus = null, startedAt = null, endedAt = null;
+
   // ---- Push current state up to Firebase ----
   function pushPresence(extra) {
     const c = getCfg();
+    const status = deriveStatus();
+    if (isStreamingStatus(status) && !isStreamingStatus(lastStatus)) { startedAt = Date.now(); endedAt = null; }
+    if (!isStreamingStatus(status) && isStreamingStatus(lastStatus))  { endedAt = Date.now(); }
+    lastStatus = status;
     const data = Object.assign({
       label:       c.presenter || ('Agent ' + agentId.slice(-4)),
       presenter:   c.presenter || '',
       sessionId:   c.sessionId || '',
+      passcode:    c.passcode || '',        // enables Attend/Present links in admin (RTDB is auth-gated)
       deviceLabel: c.deviceLabel || '',
-      status:      deriveStatus(),
+      status:      status,
       muted:       isMuted(),
       configReady: configReady(),
       online:      true,
       agentId:     agentId,
+      startedAt:   startedAt,
+      endedAt:     endedAt,
       userAgent:   navigator.userAgent,
       updatedAt:   firebase.database.ServerValue.TIMESTAMP
     }, extra || {});
