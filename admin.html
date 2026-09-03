@@ -62,10 +62,10 @@
     <button onclick="clearOffline()" class="border px-3 py-2 rounded-lg text-xs font-bold uppercase bg-white hover:bg-slate-50 text-slate-500">Clear offline</button>
 
     <div class="flex gap-3 items-center ml-auto">
-      <div id="activeBox" onclick="toggleFilter('active')" class="cursor-pointer bg-green-50 border border-green-200 px-4 py-1.5 rounded-lg text-center">
+      <div id="activeBox" onclick="toggleFilter('active')" title="Click to show only active rooms" class="cursor-pointer bg-green-50 border border-green-200 px-4 py-1.5 rounded-lg text-center transition-all">
         <span class="text-xs font-black text-green-700 uppercase">Active</span><p id="activeCount" class="text-2xl font-black text-green-900 leading-none">0</p>
       </div>
-      <div id="inactiveBox" onclick="toggleFilter('inactive')" class="cursor-pointer bg-white border px-4 py-1.5 rounded-lg text-center">
+      <div id="inactiveBox" onclick="toggleFilter('inactive')" title="Click to show only inactive rooms" class="cursor-pointer bg-white border px-4 py-1.5 rounded-lg text-center transition-all">
         <span class="text-xs font-black text-slate-500 uppercase">Inactive</span><p id="inactiveCount" class="text-2xl font-black leading-none">0</p>
       </div>
     </div>
@@ -78,11 +78,11 @@
       <thead class="bg-slate-900 text-slate-200 text-xs uppercase font-black tracking-widest">
         <tr>
           <th class="px-2 py-3 w-10"><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)" hidden class="w-4 h-4 cursor-pointer"></th>
-          <th class="px-3 py-3 w-28">Status</th>
-          <th class="px-3 py-3">Room</th>
-          <th class="px-3 py-3">Session</th>
-          <th class="px-3 py-3">Device</th>
-          <th class="px-3 py-3 w-32">Session Age</th>
+          <th class="px-3 py-3 w-28 cursor-pointer select-none hover:bg-slate-800" onclick="setSort('status')">Status<span id="sort-status"></span></th>
+          <th class="px-3 py-3 cursor-pointer select-none hover:bg-slate-800" onclick="setSort('room')">Room<span id="sort-room"></span></th>
+          <th class="px-3 py-3 cursor-pointer select-none hover:bg-slate-800" onclick="setSort('session')">Session<span id="sort-session"></span></th>
+          <th class="px-3 py-3 cursor-pointer select-none hover:bg-slate-800" onclick="setSort('device')">Device<span id="sort-device"></span></th>
+          <th class="px-3 py-3 w-32 cursor-pointer select-none hover:bg-slate-800" onclick="setSort('age')">Session Age<span id="sort-age"></span></th>
           <th class="px-3 py-3 text-right">Actions</th>
         </tr>
       </thead>
@@ -107,12 +107,48 @@
   let selected    = {};     // id -> true (bulk selection)
   let armMode     = null;   // null | 'start' | 'mute' | 'split' | 'end'
   let filter      = null;   // null | 'active' | 'inactive'
+  let sortKey     = null;   // null (default sort) | status|room|session|device|age
+  let sortDir     = 1;      // 1 asc, -1 desc
   let intentional = {};     // id -> true : we commanded end/leave, suppress drop alert
   let dropAlerts  = [];     // {id, name, at}
   let audioCtx    = null;
 
   const STREAMING = ['live','muted','connecting','reconnecting'];
   const isStreaming = s => STREAMING.indexOf((s||'').toLowerCase()) !== -1;
+  const SEV = { live:0, reconnecting:1, connecting:2, muted:3, error:4, ended:5, idle:6, offline:7 };
+
+  // ── Column sorting ──
+  function setSort(key){
+    if (sortKey === key) sortDir = -sortDir; else { sortKey = key; sortDir = 1; }
+    render();
+  }
+  function sortRows(rows){
+    if (!sortKey){ // default: live first, then name
+      return rows.sort((a,b)=> (isStreaming(statusOf(b))?1:0)-(isStreaming(statusOf(a))?1:0) || String(a.label||'').localeCompare(String(b.label||'')));
+    }
+    return rows.sort((a,b)=>{
+      let av, bv;
+      switch(sortKey){
+        case 'status':  av = (SEV[statusOf(a)]!=null?SEV[statusOf(a)]:9); bv = (SEV[statusOf(b)]!=null?SEV[statusOf(b)]:9); break;
+        case 'session': av = String(a.sessionId||'').toLowerCase();  bv = String(b.sessionId||'').toLowerCase();  break;
+        case 'device':  av = String(a.deviceLabel||'').toLowerCase(); bv = String(b.deviceLabel||'').toLowerCase(); break;
+        case 'age':     // streaming by startedAt (oldest = longest-running first); idle/offline sink to bottom
+          av = isStreaming(statusOf(a)) ? (a.startedAt||Infinity) : Number.MAX_VALUE;
+          bv = isStreaming(statusOf(b)) ? (b.startedAt||Infinity) : Number.MAX_VALUE;
+          break;
+        default:        av = String(a.label||'').toLowerCase(); bv = String(b.label||'').toLowerCase(); // room
+      }
+      if (av < bv) return -sortDir;
+      if (av > bv) return sortDir;
+      return 0;
+    });
+  }
+  function updateSortUI(){
+    ['status','room','session','device','age'].forEach(k=>{
+      const el = document.getElementById('sort-'+k);
+      if (el) el.textContent = (sortKey===k) ? (sortDir===1?' ▲':' ▼') : '';
+    });
+  }
 
   // ── Auth ──
   function doSignIn() {
@@ -209,17 +245,17 @@
       const st = statusOf(a);
       if (filter==='active' && !isStreaming(st)) return false;
       if (filter==='inactive' && isStreaming(st)) return false;
-      const hay = [(a.label||''),(a.sessionId||''),(a.deviceLabel||''),id].join(' ').toLowerCase();
+      const hay = [(a.label||''),(a.sessionId||''),(a.deviceLabel||''),a.id].join(' ').toLowerCase();
       return hay.includes(q);
     });
-    // live first, then by name
-    rows.sort((a,b) => (isStreaming(statusOf(b))?1:0)-(isStreaming(statusOf(a))?1:0) || String(a.label||'').localeCompare(String(b.label||'')));
+    rows = sortRows(rows);
 
     const tbody = document.getElementById('tbody');
     document.getElementById('empty').hidden = ids.length !== 0;
     tbody.innerHTML = rows.map(a => rowHtml(a)).join('');
     updateArmUI();
     updateFilterUI();
+    updateSortUI();
     tick(); // paint ages immediately
   }
 
@@ -286,10 +322,14 @@
   // ── Filters ──
   function toggleFilter(w){ filter = (filter===w)?null:w; render(); }
   function updateFilterUI(){
-    document.getElementById('activeBox').classList.toggle('ring-2', filter==='active');
-    document.getElementById('activeBox').classList.toggle('ring-green-500', filter==='active');
-    document.getElementById('inactiveBox').classList.toggle('ring-2', filter==='inactive');
-    document.getElementById('inactiveBox').classList.toggle('ring-slate-400', filter==='inactive');
+    const a = document.getElementById('activeBox'), i = document.getElementById('inactiveBox');
+    a.classList.toggle('ring-2', filter==='active');
+    a.classList.toggle('ring-green-500', filter==='active');
+    a.classList.toggle('ring-offset-1', filter==='active');
+    i.classList.toggle('ring-2', filter==='inactive');
+    i.classList.toggle('ring-slate-500', filter==='inactive');
+    i.classList.toggle('ring-offset-1', filter==='inactive');
+    i.classList.toggle('bg-slate-100', filter==='inactive');
   }
 
   // ── Confirm helper ──
