@@ -18,6 +18,7 @@
     --ok: #33cc77; --warn: #FFAA20; --err: #FF6666;
   }
   body { background: var(--bg); color: var(--text); font-family: Arial, Helvetica, sans-serif; min-height: 100vh; }
+  [hidden] { display: none !important; }   /* beats #signin display:flex so the panel actually hides */
 
   /* ── Top bar ── */
   header {
@@ -31,6 +32,11 @@
   .who { font-size: 13px; color: var(--dim); display: flex; align-items: center; gap: 12px; }
   .btn-out { background: var(--panel2); color: var(--text); border: none; border-radius: 6px; padding: 8px 14px; font-size: 13px; font-weight: bold; cursor: pointer; }
   .btn-out:hover { background: #24487e; }
+  .btn-clear { background: var(--panel2); color: var(--dim); border: none; border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: bold; cursor: pointer; }
+  .btn-clear:hover { background: #3a2a10; color: var(--warn); }
+  .card-top-right { display: flex; align-items: center; gap: 8px; }
+  .card-x { background: none; border: none; color: var(--dim2); font-size: 15px; line-height: 1; cursor: pointer; padding: 3px 6px; border-radius: 4px; }
+  .card-x:hover { background: #3a1a1a; color: var(--err); }
 
   /* ── Sign-in ── */
   #signin { min-height: 80vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; text-align: center; padding: 30px; }
@@ -125,7 +131,10 @@
   <div id="dash">
     <div class="dash-head">
       <h2>Room Agents</h2>
-      <span class="count-pill" id="count-pill">0 agents</span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="count-pill" id="count-pill">0 agents</span>
+        <button class="btn-clear" onclick="clearOffline()">Clear offline</button>
+      </div>
     </div>
     <div class="grid" id="grid"></div>
     <div class="empty" id="empty">
@@ -212,7 +221,10 @@
               <div class="card-label">${esc(a.label || id)}</div>
               <div class="card-id">${esc(id)}</div>
             </div>
-            <div class="dot ${online ? 'online' : ''}" title="${online ? 'online' : 'offline'}"></div>
+            <div class="card-top-right">
+              <div class="dot ${online ? 'online' : ''}" title="${online ? 'online' : 'offline'}"></div>
+              <button class="card-x" title="Remove card" onclick="removeAgent('${id}')">✕</button>
+            </div>
           </div>
 
           <span class="status-pill ${online ? status : 'offline'}">${online ? esc(status) : 'offline'}</span>
@@ -253,6 +265,23 @@
   }
   function confirmEnd(agentId) {
     if (confirm('End the session for everyone in this room? Attendees will be disconnected.')) cmd(agentId, 'end');
+  }
+
+  // ── Clear cards ──────────────────────────────────────
+  function removeAgent(id) {
+    if (!confirm('Remove this card?\n(If the device is still open, it will re-appear on its next check-in.)')) return;
+    db.ref('agents/' + id).remove();
+  }
+  function clearOffline() {
+    db.ref('agents').once('value').then(function (snap) {
+      const all = snap.val() || {};
+      const offline = Object.keys(all).filter(function (k) { return !all[k].online; });
+      if (offline.length === 0) { alert('No offline agents to clear.'); return; }
+      if (!confirm('Remove ' + offline.length + ' offline agent card' + (offline.length === 1 ? '' : 's') + '?')) return;
+      const updates = {};
+      offline.forEach(function (k) { updates[k] = null; });  // null = delete, one atomic write
+      db.ref('agents').update(updates);
+    });
   }
 </script>
 </body>
