@@ -50,7 +50,7 @@
       <h2 class="text-lg font-black uppercase tracking-widest">My Events</h2>
       <div class="flex gap-2">
         <input id="new-event-name" placeholder="New event name…" class="px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
-        <button onclick="createEvent()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700">+ Create event</button>
+        <button onclick="createNewEvent()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700">+ Create event</button>
       </div>
     </div>
     <div id="events-list" class="grid gap-3" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr))"></div>
@@ -216,7 +216,7 @@
       </div>`;
     }).join('');
   }
-  function createEvent(){
+  function createNewEvent(){
     const nameEl = document.getElementById('new-event-name');
     const name = nameEl.value.trim();
     if (!name){ nameEl.focus(); return; }
@@ -224,7 +224,8 @@
     const id = ref.key;
     ref.set({ ownerUid:user.uid, name, createdAt: firebase.database.ServerValue.TIMESTAMP })
       .then(()=> db.ref('userEvents/'+user.uid+'/'+id).set({ role:'owner', name }))
-      .then(()=>{ nameEl.value=''; openEvent(id); });
+      .then(()=>{ nameEl.value=''; openEvent(id); })
+      .catch(e => alert('Could not create event: ' + e.message));
   }
 
   // ── Event detail ──
