@@ -14,6 +14,27 @@
 (function () {
   const db = firebase.database();
 
+  // ---- URL params: which event bucket, and optional preconfig ----
+  // Ghost link:         ?event=EVENTID
+  // Preconfigured link: ?event=EVENTID&session=ABCD-1234&passcode=123456&name=Room%20204
+  const qs = new URLSearchParams(location.search);
+  const eventId = (qs.get('event') || '').trim() || '_unassigned';
+
+  // Fill session/passcode/name from the link if present (device is still picked locally).
+  (function preconfigFromLink(){
+    const sid = qs.get('session'), pass = qs.get('passcode'), nm = qs.get('name');
+    if (!sid && !pass && !nm) return;
+    try {
+      if (typeof cfg !== 'object' || !cfg) return;
+      if (sid)  cfg.sessionId = (typeof normSid === 'function' ? (normSid(sid) || sid) : sid);
+      if (pass) cfg.passcode  = pass;
+      if (nm)   cfg.presenter = nm;
+      if (typeof saveCfg === 'function') saveCfg();
+      if (typeof loadIdle === 'function') loadIdle();  // refresh idle card + Start-enabled state
+      console.log('[LEG] preconfigured from link for event', eventId);
+    } catch (e) { console.warn('[LEG] preconfig failed', e); }
+  })();
+
   // ---- Stable per-device identity (persists across reloads) ----
   let agentId = '';
   try { agentId = localStorage.getItem('leg_agent_id') || ''; } catch (e) {}
@@ -21,9 +42,10 @@
     agentId = 'agent-' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
     try { localStorage.setItem('leg_agent_id', agentId); } catch (e) {}
   }
-  const presenceRef = db.ref('agents/' + agentId);
-  const commandRef  = db.ref('agents/' + agentId + '/command');
-  const resultRef   = db.ref('agents/' + agentId + '/lastResult');
+  const base = 'events/' + eventId + '/agents/' + agentId;
+  const presenceRef = db.ref(base);
+  const commandRef  = db.ref(base + '/command');
+  const resultRef   = db.ref(base + '/lastResult');
 
   let lastCmdId = null;
 
@@ -83,6 +105,7 @@
       configReady: configReady(),
       online:      true,
       agentId:     agentId,
+      eventId:     eventId,
       startedAt:   startedAt,
       endedAt:     endedAt,
       userAgent:   navigator.userAgent,
@@ -167,6 +190,7 @@
     .then(function () { firebase.auth().onAuthStateChanged(function (u) { if (u) begin(); }); })
     .catch(function (e) { console.error('[LEG] anonymous auth failed', e); });
 
-  // Expose id for debugging
+  // Expose ids for debugging
   window.LEG_AGENT_ID = agentId;
+  window.LEG_EVENT_ID = eventId;
 })();

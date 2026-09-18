@@ -3,14 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LEG Mission Control</title>
+<title>Wordly Live Event Gateway</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛰️</text></svg>">
 <!--
-  Live Event Gateway — Admin / Mission Control
-  v0.3 — Mission-Control look, Firebase-wired (realtime, no apikey).
-  Google auth · live agent table · arm-or-fire bulk · Attend/Present · drop alerts · confirms on all actions.
+  Wordly Live Event Gateway — Admin
+  v0.4 — multi-user (Google) + events + invite sharing + per-event room control + CSV link generator.
+  Internal Google auth only (external/MFA is a later track). UX polish pass pending (Graham).
 -->
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   .active-row { background-color: rgba(34,197,94,0.08); border-left: 4px solid #16a34a; }
   .error-row  { background-color: rgba(239,68,68,0.07); border-left: 4px solid #dc2626; }
@@ -23,8 +24,8 @@
 
 <!-- ══ SIGN IN ══ -->
 <div id="signin" class="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center gap-5 p-8 text-center">
-  <div class="text-2xl font-black tracking-tight">LIVE EVENT GATEWAY <span class="text-blue-600 font-bold text-lg">Mission Control</span></div>
-  <p class="text-slate-500 max-w-sm">Sign in with your Wordly Google account to see and control room agents.</p>
+  <div class="text-3xl font-black tracking-tight">Wordly <span class="text-blue-600">Live Event Gateway</span></div>
+  <p class="text-slate-500 max-w-sm">Sign in with your Wordly Google account to manage events and room agents.</p>
   <button onclick="doSignIn()" class="flex items-center gap-3 bg-white border shadow-sm rounded-lg px-6 py-3 text-base font-bold hover:bg-slate-50">
     <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.7 1.22 9.2 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
     Sign in with Google
@@ -35,7 +36,7 @@
 <!-- ══ APP ══ -->
 <div id="app" hidden>
   <nav class="flex justify-between items-center mb-4 pb-2 border-b border-slate-200">
-    <div class="text-xl font-black tracking-tight">LIVE EVENT GATEWAY <span class="text-blue-600 font-bold text-sm align-middle">Mission Control</span></div>
+    <div class="text-xl font-black tracking-tight">Wordly <span class="text-blue-600">Live Event Gateway</span></div>
     <div class="flex items-center gap-4">
       <span class="text-sm text-slate-500" id="who-email"></span>
       <span class="flex items-center gap-1.5 text-xs font-bold text-green-600"><span class="w-2 h-2 rounded-full bg-green-500 pulse"></span>REALTIME</span>
@@ -43,53 +44,104 @@
     </div>
   </nav>
 
-  <header class="mb-3 flex flex-wrap gap-3 items-center bg-slate-100 p-2 rounded-xl border border-slate-200">
-    <div class="w-full md:w-64">
-      <input type="text" id="search" placeholder="Search room, session, device…" class="w-full px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-base">
-    </div>
-
-    <!-- Bulk arm-or-fire -->
-    <div class="flex items-center gap-2">
-      <span class="text-xs font-black uppercase text-slate-400 tracking-widest pr-1">Bulk</span>
-      <button id="bulk-start" onclick="armOrFire('start')" class="border px-3 py-2 rounded-lg text-xs font-bold uppercase bg-white hover:bg-slate-50">▶ Start</button>
-      <button id="bulk-mute"  onclick="armOrFire('mute')"  class="border px-3 py-2 rounded-lg text-xs font-bold uppercase bg-white hover:bg-slate-50">⏸ Mute</button>
-      <button id="bulk-split" onclick="armOrFire('split')" class="border px-3 py-2 rounded-lg text-xs font-bold uppercase bg-white hover:bg-slate-50">✂ Split</button>
-      <button id="bulk-end"   onclick="armOrFire('end')"   class="border px-3 py-2 rounded-lg text-xs font-bold uppercase bg-white hover:bg-slate-50">■ End</button>
-      <button id="bulk-cancel" onclick="cancelArm()" hidden class="text-slate-500 hover:text-slate-800 px-2 text-lg font-black" title="Cancel">&times;</button>
-    </div>
-
-    <label class="flex items-center gap-2 px-2 cursor-pointer"><input type="checkbox" id="alertDrops" class="w-5 h-5 cursor-pointer"><span class="text-xs font-black uppercase">Alert Drops</span></label>
-    <button onclick="clearOffline()" class="border px-3 py-2 rounded-lg text-xs font-bold uppercase bg-white hover:bg-slate-50 text-slate-500">Clear offline</button>
-
-    <div class="flex gap-3 items-center ml-auto">
-      <div id="activeBox" onclick="toggleFilter('active')" title="Click to show only active rooms" class="cursor-pointer bg-green-50 border border-green-200 px-4 py-1.5 rounded-lg text-center transition-all">
-        <span class="text-xs font-black text-green-700 uppercase">Active</span><p id="activeCount" class="text-2xl font-black text-green-900 leading-none">0</p>
-      </div>
-      <div id="inactiveBox" onclick="toggleFilter('inactive')" title="Click to show only inactive rooms" class="cursor-pointer bg-white border px-4 py-1.5 rounded-lg text-center transition-all">
-        <span class="text-xs font-black text-slate-500 uppercase">Inactive</span><p id="inactiveCount" class="text-2xl font-black leading-none">0</p>
+  <!-- ── EVENTS LIST ── -->
+  <div id="events-view">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-black uppercase tracking-widest">My Events</h2>
+      <div class="flex gap-2">
+        <input id="new-event-name" placeholder="New event name…" class="px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
+        <button onclick="createEvent()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700">+ Create event</button>
       </div>
     </div>
-  </header>
-
-  <div id="dropBanner" hidden class="mb-3 bg-red-600 text-white rounded-xl p-3 space-y-1"></div>
-
-  <div class="overflow-x-auto border border-slate-200 rounded-xl bg-white shadow-sm">
-    <table class="w-full text-left text-sm">
-      <thead class="bg-slate-900 text-slate-200 text-xs uppercase font-black tracking-widest">
-        <tr>
-          <th class="px-2 py-3 w-10"><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)" hidden class="w-4 h-4 cursor-pointer"></th>
-          <th class="px-3 py-3 w-28 cursor-pointer select-none hover:bg-slate-800" onclick="setSort('status')">Status<span id="sort-status"></span></th>
-          <th class="px-3 py-3 cursor-pointer select-none hover:bg-slate-800" onclick="setSort('room')">Room<span id="sort-room"></span></th>
-          <th class="px-3 py-3 cursor-pointer select-none hover:bg-slate-800" onclick="setSort('session')">Session<span id="sort-session"></span></th>
-          <th class="px-3 py-3 cursor-pointer select-none hover:bg-slate-800" onclick="setSort('device')">Device<span id="sort-device"></span></th>
-          <th class="px-3 py-3 w-32 cursor-pointer select-none hover:bg-slate-800" onclick="setSort('age')">Session Age<span id="sort-age"></span></th>
-          <th class="px-3 py-3 text-right">Actions</th>
-        </tr>
-      </thead>
-      <tbody id="tbody" class="divide-y divide-slate-100"></tbody>
-    </table>
+    <div id="events-list" class="grid gap-3" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr))"></div>
+    <div id="events-empty" class="text-center text-slate-400 italic font-bold uppercase tracking-widest py-16" hidden>No events yet — create your first one above.</div>
   </div>
-  <div id="empty" class="text-center text-slate-400 italic font-bold uppercase tracking-widest py-16" hidden>No agents checked in yet — open the agent page on a device.</div>
+
+  <!-- ── EVENT DETAIL ── -->
+  <div id="event-view" hidden>
+    <div class="flex items-center gap-3 mb-3">
+      <button onclick="closeEvent()" class="text-slate-500 hover:text-slate-900 font-bold">← All events</button>
+      <h2 class="text-xl font-black" id="event-title">Event</h2>
+      <span class="text-xs text-slate-400 font-mono" id="event-id-label"></span>
+    </div>
+
+    <!-- link + share -->
+    <div class="grid gap-3 mb-4" style="grid-template-columns:1fr 1fr">
+      <div class="bg-slate-100 border rounded-xl p-3">
+        <div class="text-xs font-black uppercase text-slate-500 mb-1">Room link for this event (generic)</div>
+        <div class="text-xs text-slate-500 mb-2">Hand this to a room — the presenter page shows up in this event, then the operator enters session details locally.</div>
+        <div class="flex gap-2">
+          <input id="event-link" readonly class="flex-1 px-3 py-2 border rounded-lg font-mono text-sm bg-white">
+          <button onclick="copyEventLink()" class="bg-slate-900 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-blue-600">Copy</button>
+        </div>
+      </div>
+      <div class="bg-slate-100 border rounded-xl p-3">
+        <div class="text-xs font-black uppercase text-slate-500 mb-1">Share this event (invite by email)</div>
+        <div class="text-xs text-slate-500 mb-2">The person must have signed into LEG at least once.</div>
+        <div class="flex gap-2 mb-2">
+          <input id="share-email" type="email" placeholder="colleague@wordly.ai" class="flex-1 px-3 py-2 border rounded-lg text-sm">
+          <button onclick="addMember()" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-blue-700">Add</button>
+        </div>
+        <div id="share-msg" class="text-xs min-h-[16px] mb-1"></div>
+        <div id="members-list" class="flex flex-wrap gap-1.5"></div>
+      </div>
+    </div>
+
+    <!-- CSV generator -->
+    <div class="bg-slate-100 border rounded-xl p-3 mb-4">
+      <div class="text-xs font-black uppercase text-slate-500 mb-1">Bulk room links from a spreadsheet</div>
+      <div class="text-xs text-slate-500 mb-2">Upload a CSV/XLSX with columns for <b>session</b>, <b>passcode</b>, and <b>name</b>. Each row gets a preconfigured room link added in a <b>leg_link</b> column; download the merged sheet.</div>
+      <div class="flex items-center gap-3">
+        <input type="file" id="csv-input" accept=".csv,.xlsx,.xls" class="text-sm">
+        <button id="csv-download" onclick="downloadMerged()" hidden class="bg-green-700 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-green-800">⬇ Download merged</button>
+        <span id="csv-msg" class="text-xs text-slate-500"></span>
+      </div>
+      <div id="csv-preview" class="overflow-x-auto mt-3"></div>
+    </div>
+
+    <!-- room table controls -->
+    <header class="mb-3 flex flex-wrap gap-3 items-center bg-slate-100 p-2 rounded-xl border border-slate-200">
+      <div class="w-full md:w-56"><input type="text" id="search" placeholder="Search room, session, device…" class="w-full px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-base"></div>
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-black uppercase text-slate-400 tracking-widest pr-1">Bulk</span>
+        <button id="bulk-start" onclick="armOrFire('start')" class="border px-3 py-2 rounded-lg text-xs font-bold uppercase bg-white hover:bg-slate-50">▶ Start</button>
+        <button id="bulk-mute"  onclick="armOrFire('mute')"  class="border px-3 py-2 rounded-lg text-xs font-bold uppercase bg-white hover:bg-slate-50">⏸ Mute</button>
+        <button id="bulk-split" onclick="armOrFire('split')" class="border px-3 py-2 rounded-lg text-xs font-bold uppercase bg-white hover:bg-slate-50">✂ Split</button>
+        <button id="bulk-end"   onclick="armOrFire('end')"   class="border px-3 py-2 rounded-lg text-xs font-bold uppercase bg-white hover:bg-slate-50">■ End</button>
+        <button id="bulk-cancel" onclick="cancelArm()" hidden class="text-slate-500 hover:text-slate-800 px-2 text-lg font-black" title="Cancel">&times;</button>
+      </div>
+      <label class="flex items-center gap-2 px-2 cursor-pointer"><input type="checkbox" id="alertDrops" class="w-5 h-5 cursor-pointer"><span class="text-xs font-black uppercase">Alert Drops</span></label>
+      <button onclick="clearOffline()" class="border px-3 py-2 rounded-lg text-xs font-bold uppercase bg-white hover:bg-slate-50 text-slate-500">Clear offline</button>
+      <div class="flex gap-3 items-center ml-auto">
+        <div id="activeBox" onclick="toggleFilter('active')" title="Click to show only active rooms" class="cursor-pointer bg-green-50 border border-green-200 px-4 py-1.5 rounded-lg text-center transition-all">
+          <span class="text-xs font-black text-green-700 uppercase">Active</span><p id="activeCount" class="text-2xl font-black text-green-900 leading-none">0</p>
+        </div>
+        <div id="inactiveBox" onclick="toggleFilter('inactive')" title="Click to show only inactive rooms" class="cursor-pointer bg-white border px-4 py-1.5 rounded-lg text-center transition-all">
+          <span class="text-xs font-black text-slate-500 uppercase">Inactive</span><p id="inactiveCount" class="text-2xl font-black leading-none">0</p>
+        </div>
+      </div>
+    </header>
+
+    <div id="dropBanner" hidden class="mb-3 bg-red-600 text-white rounded-xl p-3 space-y-1"></div>
+
+    <div class="overflow-x-auto border border-slate-200 rounded-xl bg-white shadow-sm">
+      <table class="w-full text-left text-sm">
+        <thead class="bg-slate-900 text-slate-200 text-xs uppercase font-black tracking-widest">
+          <tr>
+            <th class="px-2 py-3 w-10"><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)" hidden class="w-4 h-4 cursor-pointer"></th>
+            <th class="px-3 py-3 w-28 cursor-pointer select-none hover:bg-slate-800" onclick="setSort('status')">Status<span id="sort-status"></span></th>
+            <th class="px-3 py-3 cursor-pointer select-none hover:bg-slate-800" onclick="setSort('room')">Room<span id="sort-room"></span></th>
+            <th class="px-3 py-3 cursor-pointer select-none hover:bg-slate-800" onclick="setSort('session')">Session<span id="sort-session"></span></th>
+            <th class="px-3 py-3 cursor-pointer select-none hover:bg-slate-800" onclick="setSort('device')">Device<span id="sort-device"></span></th>
+            <th class="px-3 py-3 w-32 cursor-pointer select-none hover:bg-slate-800" onclick="setSort('age')">Session Age<span id="sort-age"></span></th>
+            <th class="px-3 py-3 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tbody" class="divide-y divide-slate-100"></tbody>
+      </table>
+    </div>
+    <div id="empty" class="text-center text-slate-400 italic font-bold uppercase tracking-widest py-16" hidden>No rooms checked into this event yet — open its room link on a device.</div>
+  </div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
@@ -99,359 +151,337 @@
 <script>
   const db = firebase.database();
   const auth = firebase.auth();
-  let agentsRef = null;
+  const AGENT_BASE = location.href.replace(/admin\.html.*$/, '').replace(/[?#].*$/, '');  // e.g. https://…/live_event_gateway/
 
   // ── State ──
-  let agentData   = {};     // id -> agent record (latest)
-  let prevStatus  = {};     // id -> last seen status (for drop detection)
-  let selected    = {};     // id -> true (bulk selection)
-  let armMode     = null;   // null | 'start' | 'mute' | 'split' | 'end'
-  let filter      = null;   // null | 'active' | 'inactive'
-  let sortKey     = null;   // null (default sort) | status|room|session|device|age
-  let sortDir     = 1;      // 1 asc, -1 desc
-  let prevFilter  = null;   // filter to restore after a bulk action ends
-  let intentional = {};     // id -> true : we commanded end/leave, suppress drop alert
-  let dropAlerts  = [];     // {id, name, at}
-  let audioCtx    = null;
+  let user = null;
+  let userEventsRef = null;
+  let currentEventId = null, currentEvent = null;
+  let agentsRef = null;
+
+  let agentData = {}, prevStatus = {}, selected = {}, armMode = null, filter = null;
+  let sortKey = null, sortDir = 1, prevFilter = null;
+  let intentional = {}, dropAlerts = [], audioCtx = null;
 
   const STREAMING = ['live','muted','connecting','reconnecting'];
   const isStreaming = s => STREAMING.indexOf((s||'').toLowerCase()) !== -1;
   const SEV = { live:0, reconnecting:1, connecting:2, muted:3, error:4, ended:5, idle:6, offline:7 };
-
-  // ── Column sorting ──
-  function setSort(key){
-    if (sortKey === key) sortDir = -sortDir; else { sortKey = key; sortDir = 1; }
-    render();
-  }
-  function sortRows(rows){
-    if (!sortKey){ // default: live first, then name
-      return rows.sort((a,b)=> (isStreaming(statusOf(b))?1:0)-(isStreaming(statusOf(a))?1:0) || String(a.label||'').localeCompare(String(b.label||'')));
-    }
-    return rows.sort((a,b)=>{
-      let av, bv;
-      switch(sortKey){
-        case 'status':  av = (SEV[statusOf(a)]!=null?SEV[statusOf(a)]:9); bv = (SEV[statusOf(b)]!=null?SEV[statusOf(b)]:9); break;
-        case 'session': av = String(a.sessionId||'').toLowerCase();  bv = String(b.sessionId||'').toLowerCase();  break;
-        case 'device':  av = String(a.deviceLabel||'').toLowerCase(); bv = String(b.deviceLabel||'').toLowerCase(); break;
-        case 'age':     // streaming by startedAt (oldest = longest-running first); idle/offline sink to bottom
-          av = isStreaming(statusOf(a)) ? (a.startedAt||Infinity) : Number.MAX_VALUE;
-          bv = isStreaming(statusOf(b)) ? (b.startedAt||Infinity) : Number.MAX_VALUE;
-          break;
-        default:        av = String(a.label||'').toLowerCase(); bv = String(b.label||'').toLowerCase(); // room
-      }
-      if (av < bv) return -sortDir;
-      if (av > bv) return sortDir;
-      return 0;
-    });
-  }
-  function updateSortUI(){
-    ['status','room','session','device','age'].forEach(k=>{
-      const el = document.getElementById('sort-'+k);
-      if (el) el.textContent = (sortKey===k) ? (sortDir===1?' ▲':' ▼') : '';
-    });
-  }
+  const emailKey = e => (e||'').trim().toLowerCase().replace(/[.#$\[\]\/]/g,',');
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
   // ── Auth ──
-  function doSignIn() {
-    document.getElementById('signin-err').textContent = '';
+  function doSignIn(){
+    document.getElementById('signin-err').textContent='';
     auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())
       .catch(e => document.getElementById('signin-err').textContent = e.message || 'Sign-in failed.');
   }
-  function doSignOut() { auth.signOut(); }
-  auth.onAuthStateChanged(user => {
-    if (user) {
+  function doSignOut(){ auth.signOut(); }
+  auth.onAuthStateChanged(u => {
+    if (u){
+      user = u;
       document.getElementById('signin').hidden = true;
       document.getElementById('app').hidden = false;
-      document.getElementById('who-email').textContent = user.email || user.displayName || '';
-      startWatching();
+      document.getElementById('who-email').textContent = u.email || u.displayName || '';
+      // self-register in directory so others can invite by email
+      db.ref('users/'+u.uid).update({ email:u.email||'', name:u.displayName||'', lastSeen: firebase.database.ServerValue.TIMESTAMP });
+      if (u.email) db.ref('usersByEmail/'+emailKey(u.email)).set(u.uid);
+      watchMyEvents();
+      closeEvent();
     } else {
+      user = null;
+      if (userEventsRef){ userEventsRef.off(); userEventsRef = null; }
+      if (agentsRef){ agentsRef.off(); agentsRef = null; }
       document.getElementById('app').hidden = true;
       document.getElementById('signin').hidden = false;
-      if (agentsRef) { agentsRef.off(); agentsRef = null; }
     }
   });
 
-  // ── Realtime data ──
-  function startWatching() {
-    if (agentsRef) return;
-    agentsRef = db.ref('agents');
-    agentsRef.on('value', snap => onData(snap.val() || {}));
+  // ── Events list ──
+  function watchMyEvents(){
+    if (userEventsRef) userEventsRef.off();
+    userEventsRef = db.ref('userEvents/'+user.uid);
+    userEventsRef.on('value', snap => renderEvents(snap.val() || {}));
   }
-  function onData(agents) {
-    // Drop detection: streaming -> offline/error that we didn't cause
+  function renderEvents(map){
+    const ids = Object.keys(map);
+    const list = document.getElementById('events-list');
+    document.getElementById('events-empty').hidden = ids.length !== 0;
+    list.innerHTML = ids.map(id => {
+      const role = (typeof map[id] === 'object' ? map[id].role : map[id]) || 'member';
+      const name = (typeof map[id] === 'object' ? map[id].name : '') || id;
+      return `<div class="border rounded-xl p-4 bg-white shadow-sm cursor-pointer hover:border-blue-400" onclick="openEvent('${id}')">
+        <div class="font-black text-lg">${esc(name)}</div>
+        <div class="text-xs text-slate-400 font-mono mt-1">${esc(id)}</div>
+        <div class="mt-2"><span class="text-xs font-bold uppercase px-2 py-0.5 rounded ${role==='owner'?'bg-blue-100 text-blue-700':'bg-slate-100 text-slate-500'}">${role}</span></div>
+      </div>`;
+    }).join('');
+  }
+  function createEvent(){
+    const nameEl = document.getElementById('new-event-name');
+    const name = nameEl.value.trim();
+    if (!name){ nameEl.focus(); return; }
+    const ref = db.ref('events').push();
+    const id = ref.key;
+    ref.set({ ownerUid:user.uid, name, createdAt: firebase.database.ServerValue.TIMESTAMP })
+      .then(()=> db.ref('userEvents/'+user.uid+'/'+id).set({ role:'owner', name }))
+      .then(()=>{ nameEl.value=''; openEvent(id); });
+  }
+
+  // ── Event detail ──
+  function openEvent(id){
+    currentEventId = id;
+    db.ref('events/'+id).once('value').then(snap=>{
+      currentEvent = snap.val() || {};
+      document.getElementById('event-title').textContent = currentEvent.name || id;
+      document.getElementById('event-id-label').textContent = id;
+      document.getElementById('event-link').value = AGENT_BASE + '?event=' + encodeURIComponent(id);
+      renderMembers();
+      document.getElementById('events-view').hidden = true;
+      document.getElementById('event-view').hidden = false;
+      // watch this event's agents
+      if (agentsRef) agentsRef.off();
+      agentData = {}; prevStatus = {}; selected = {}; armMode=null; filter=null;
+      agentsRef = db.ref('events/'+id+'/agents');
+      agentsRef.on('value', s => onData(s.val() || {}));
+    });
+  }
+  function closeEvent(){
+    if (agentsRef){ agentsRef.off(); agentsRef = null; }
+    currentEventId = null; currentEvent = null;
+    document.getElementById('event-view').hidden = true;
+    document.getElementById('events-view').hidden = false;
+  }
+  function copyEventLink(){
+    const v = document.getElementById('event-link').value;
+    navigator.clipboard.writeText(v).then(()=>flash(document.getElementById('event-link')));
+  }
+  function flash(el){ el.classList.add('ring-2','ring-green-500'); setTimeout(()=>el.classList.remove('ring-2','ring-green-500'),700); }
+
+  // ── Sharing (invite existing users by email) ──
+  function renderMembers(){
+    const m = (currentEvent && currentEvent.members) || {};
+    const owner = currentEvent && currentEvent.ownerUid;
+    const chips = [];
+    chips.push(`<span class="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 font-bold">${esc((currentEvent&&currentEvent.ownerEmail)|| 'owner')} · owner</span>`);
+    Object.keys(m).forEach(uid=>{
+      chips.push(`<span class="text-xs px-2 py-1 rounded bg-slate-200 text-slate-700 font-bold flex items-center gap-1">${esc(m[uid].email||uid)}<button onclick="removeMember('${uid}')" class="text-slate-500 hover:text-red-600">✕</button></span>`);
+    });
+    document.getElementById('members-list').innerHTML = chips.join('');
+  }
+  function addMember(){
+    const el = document.getElementById('share-email'), msg = document.getElementById('share-msg');
+    const email = el.value.trim(); if (!email){ el.focus(); return; }
+    msg.textContent = 'Looking up…'; msg.className = 'text-xs text-slate-500 min-h-[16px] mb-1';
+    db.ref('usersByEmail/'+emailKey(email)).once('value').then(snap=>{
+      const uid = snap.val();
+      if (!uid){ msg.textContent = 'No LEG user with that email — ask them to sign in once, then add them.'; msg.className='text-xs text-amber-600 min-h-[16px] mb-1'; return; }
+      if (uid === (currentEvent&&currentEvent.ownerUid)){ msg.textContent='That’s the owner.'; return; }
+      Promise.all([
+        db.ref('events/'+currentEventId+'/members/'+uid).set({ email, addedAt: firebase.database.ServerValue.TIMESTAMP }),
+        db.ref('userEvents/'+uid+'/'+currentEventId).set({ role:'member', name: currentEvent.name || currentEventId })
+      ]).then(()=>{
+        el.value=''; msg.textContent='Added '+email; msg.className='text-xs text-green-600 min-h-[16px] mb-1';
+        currentEvent.members = currentEvent.members || {}; currentEvent.members[uid] = { email }; renderMembers();
+      }).catch(e=>{ msg.textContent='Failed: '+e.message; msg.className='text-xs text-red-600 min-h-[16px] mb-1'; });
+    });
+  }
+  function removeMember(uid){
+    if (!confirm('Remove this member from the event?')) return;
+    Promise.all([
+      db.ref('events/'+currentEventId+'/members/'+uid).remove(),
+      db.ref('userEvents/'+uid+'/'+currentEventId).remove()
+    ]).then(()=>{ if(currentEvent.members) delete currentEvent.members[uid]; renderMembers(); });
+  }
+
+  // ── Realtime agents (scoped to current event) ──
+  function agentPath(id){ return 'events/'+currentEventId+'/agents/'+id; }
+  function onData(agents){
     Object.keys(agents).forEach(id => {
       const a = agents[id] || {};
-      const now = (a.online ? (a.status || 'idle') : 'offline').toLowerCase();
+      const now = (a.online ? (a.status||'idle') : 'offline').toLowerCase();
       const was = prevStatus[id];
-      const dropped = was && isStreaming(was) && (now === 'offline' || now === 'error');
-      if (dropped) {
-        if (intentional[id]) { delete intentional[id]; }
+      if (was && isStreaming(was) && (now==='offline'||now==='error')){
+        if (intentional[id]) delete intentional[id];
         else if (document.getElementById('alertDrops').checked) triggerDrop(id, a);
       }
       prevStatus[id] = now;
     });
-    // prune stale
-    Object.keys(prevStatus).forEach(id => { if (!agents[id]) delete prevStatus[id]; });
-    Object.keys(selected).forEach(id => { if (!agents[id]) delete selected[id]; });
-    agentData = agents;
-    render();
+    Object.keys(prevStatus).forEach(id=>{ if(!agents[id]) delete prevStatus[id]; });
+    Object.keys(selected).forEach(id=>{ if(!agents[id]) delete selected[id]; });
+    agentData = agents; render();
   }
 
-  // ── Helpers ──
-  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-  function statusOf(a){ return a.online ? (a.status || 'idle').toLowerCase() : 'offline'; }
-  function badge(status){
-    const m = {
-      live:'bg-green-100 text-green-700', muted:'bg-amber-100 text-amber-700',
-      connecting:'bg-blue-100 text-blue-700', reconnecting:'bg-orange-100 text-orange-700 pulse',
-      error:'bg-red-100 text-red-700', ended:'bg-slate-100 text-slate-500',
-      idle:'bg-slate-100 text-slate-600', offline:'bg-slate-200 text-slate-400'
-    };
-    return m[status] || 'bg-slate-100 text-slate-500';
-  }
-  function fmtDur(ms){
-    if (ms < 0) ms = 0;
-    const s = Math.floor(ms/1000);
-    return [Math.floor(s/3600),Math.floor((s%3600)/60),s%60].map(n=>String(n).padStart(2,'0')).join(':');
-  }
-  function ago(ts){
-    if(!ts) return '';
-    const s = Math.floor((Date.now()-ts)/1000);
-    if(s<60) return s+'s ago'; if(s<3600) return Math.floor(s/60)+'m ago'; return Math.floor(s/3600)+'h ago';
-  }
-  // which agents are eligible for the currently-armed bulk action
-  function eligible(a){
-    const st = statusOf(a);
-    if (!a.online) return false;
-    switch(armMode){
-      case 'start': return st==='idle' && a.configReady;
-      case 'mute':  return st==='live';
-      case 'split': return st==='live' || st==='muted';
-      case 'end':   return isStreaming(st);
-      default:      return false;
-    }
-  }
+  function statusOf(a){ return a.online ? (a.status||'idle').toLowerCase() : 'offline'; }
+  function badge(s){ return ({live:'bg-green-100 text-green-700',muted:'bg-amber-100 text-amber-700',connecting:'bg-blue-100 text-blue-700',reconnecting:'bg-orange-100 text-orange-700 pulse',error:'bg-red-100 text-red-700',ended:'bg-slate-100 text-slate-500',idle:'bg-slate-100 text-slate-600',offline:'bg-slate-200 text-slate-400'}[s]) || 'bg-slate-100 text-slate-500'; }
+  function fmtDur(ms){ if(ms<0)ms=0; const s=Math.floor(ms/1000); return [Math.floor(s/3600),Math.floor((s%3600)/60),s%60].map(n=>String(n).padStart(2,'0')).join(':'); }
+  function ago(ts){ if(!ts)return''; const s=Math.floor((Date.now()-ts)/1000); if(s<60)return s+'s ago'; if(s<3600)return Math.floor(s/60)+'m ago'; return Math.floor(s/3600)+'h ago'; }
+  function eligible(a){ const st=statusOf(a); if(!a.online)return false; switch(armMode){case 'start':return st==='idle'&&a.configReady;case 'mute':return st==='live';case 'split':return st==='live'||st==='muted';case 'end':return isStreaming(st);default:return false;} }
 
-  // ── Render ──
+  function setSort(key){ if(sortKey===key)sortDir=-sortDir; else{sortKey=key;sortDir=1;} render(); }
+  function sortRows(rows){
+    if(!sortKey) return rows.sort((a,b)=>(isStreaming(statusOf(b))?1:0)-(isStreaming(statusOf(a))?1:0)||String(a.label||'').localeCompare(String(b.label||'')));
+    return rows.sort((a,b)=>{
+      let av,bv;
+      switch(sortKey){
+        case 'status': av=(SEV[statusOf(a)]!=null?SEV[statusOf(a)]:9); bv=(SEV[statusOf(b)]!=null?SEV[statusOf(b)]:9); break;
+        case 'session': av=String(a.sessionId||'').toLowerCase(); bv=String(b.sessionId||'').toLowerCase(); break;
+        case 'device': av=String(a.deviceLabel||'').toLowerCase(); bv=String(b.deviceLabel||'').toLowerCase(); break;
+        case 'age': av=isStreaming(statusOf(a))?(a.startedAt||Infinity):Number.MAX_VALUE; bv=isStreaming(statusOf(b))?(b.startedAt||Infinity):Number.MAX_VALUE; break;
+        default: av=String(a.label||'').toLowerCase(); bv=String(b.label||'').toLowerCase();
+      }
+      if(av<bv)return -sortDir; if(av>bv)return sortDir; return 0;
+    });
+  }
+  function updateSortUI(){ ['status','room','session','device','age'].forEach(k=>{const el=document.getElementById('sort-'+k); if(el)el.textContent=(sortKey===k)?(sortDir===1?' ▲':' ▼'):'';}); }
+
   function render(){
-    const q = document.getElementById('search').value.toLowerCase();
-    const ids = Object.keys(agentData);
-    let active = 0, inactive = 0;
-    ids.forEach(id => { isStreaming(statusOf(agentData[id])) ? active++ : inactive++; });
-    document.getElementById('activeCount').textContent = active;
-    document.getElementById('inactiveCount').textContent = inactive;
-    document.title = (active>0?`(${active}) `:'') + 'LEG Mission Control';
-
-    let rows = ids.map(id => Object.assign({id}, agentData[id])).filter(a => {
-      const st = statusOf(a);
-      if (filter==='active' && !isStreaming(st)) return false;
-      if (filter==='inactive' && isStreaming(st)) return false;
-      const hay = [(a.label||''),(a.sessionId||''),(a.deviceLabel||''),a.id].join(' ').toLowerCase();
-      return hay.includes(q);
+    const q=document.getElementById('search').value.toLowerCase();
+    const ids=Object.keys(agentData);
+    let active=0,inactive=0; ids.forEach(id=>{ isStreaming(statusOf(agentData[id]))?active++:inactive++; });
+    document.getElementById('activeCount').textContent=active;
+    document.getElementById('inactiveCount').textContent=inactive;
+    document.title=(active>0?`(${active}) `:'')+'Wordly Live Event Gateway';
+    let rows=ids.map(id=>Object.assign({id},agentData[id])).filter(a=>{
+      const st=statusOf(a);
+      if(filter==='active'&&!isStreaming(st))return false;
+      if(filter==='inactive'&&isStreaming(st))return false;
+      return [(a.label||''),(a.sessionId||''),(a.deviceLabel||''),a.id].join(' ').toLowerCase().includes(q);
     });
-    rows = sortRows(rows);
-
-    const tbody = document.getElementById('tbody');
-    document.getElementById('empty').hidden = ids.length !== 0;
-    tbody.innerHTML = rows.map(a => rowHtml(a)).join('');
-    updateArmUI();
-    updateFilterUI();
-    updateSortUI();
-    tick(); // paint ages immediately
+    rows=sortRows(rows);
+    document.getElementById('empty').hidden=ids.length!==0;
+    document.getElementById('tbody').innerHTML=rows.map(rowHtml).join('');
+    updateArmUI(); updateFilterUI(); updateSortUI(); tick();
   }
-
   function rowHtml(a){
-    const id = a.id, st = statusOf(a);
-    const streaming = isStreaming(st);
-    const rowCls = st==='error' ? 'error-row' : (streaming ? 'active-row' : (a.online?'':'offline-row'));
-    const showCb = armMode && eligible(a);
-    const checked = selected[id] ? 'checked' : '';
-    const sid = a.sessionId || '';
-    const pass = a.passcode || '';
-    const attend  = sid ? `https://attend.wordly.ai/enter/${encodeURIComponent(sid)}` : '';
-    const present = sid ? `https://join.wordly.ai/enter/${encodeURIComponent(sid)}${pass?`?key=${encodeURIComponent(pass)}`:''}` : '';
-
-    // per-row action enablement
-    const canStart  = a.online && st==='idle' && a.configReady;
-    const canMute   = a.online && st==='live';
-    const canUnmute = a.online && st==='muted';
-    const canSplit  = a.online && (st==='live'||st==='muted');
-    const canLeave  = a.online && streaming;
-    const canEnd    = a.online && streaming;
-    const b = (ok,cls,label,act) => `<button ${ok?'':'disabled'} onclick="rowCmd('${id}','${act}')" class="px-2 py-1 rounded text-xs font-bold ${ok?cls:'bg-slate-100 text-slate-300 cursor-not-allowed'}">${label}</button>`;
-
-    return `
-      <tr class="${rowCls}">
-        <td class="px-2 py-3">${showCb?`<input type="checkbox" ${checked} onchange="toggleSel('${id}',this)" class="w-4 h-4 cursor-pointer">`:''}</td>
-        <td class="px-3 py-3"><span class="px-2 py-0.5 rounded text-xs font-black uppercase ${badge(st)}">${st}</span>${a.muted&&streaming?'<div class="text-[10px] text-amber-600 font-bold mt-1">MUTED</div>':''}</td>
-        <td class="px-3 py-3">
-          <div class="font-bold text-base">${esc(a.label||'—')}</div>
-          <div class="text-[11px] text-slate-400 font-mono">${esc(id)}</div>
-          ${(!a.configReady && a.online)?'<div class="text-[11px] text-amber-600 font-bold">⚠ not configured</div>':''}
-        </td>
-        <td class="px-3 py-3"><span class="font-mono font-bold text-blue-600 tracking-tight">${esc(sid||'—')}</span></td>
-        <td class="px-3 py-3 text-slate-600">${esc(a.deviceLabel||'—')}</td>
-        <td class="px-3 py-3 age-cell" data-id="${id}" data-started="${streaming&&a.startedAt?a.startedAt:''}" data-ended="${(!streaming&&a.endedAt)?a.endedAt:''}"></td>
-        <td class="px-3 py-3">
-          <div class="flex items-center justify-end gap-1.5 whitespace-nowrap">
-            ${attend?`<a href="${attend}" target="_blank" class="text-blue-600 text-xs font-black uppercase hover:underline px-1" title="Listen in">Attend</a>`:''}
-            ${present?`<a href="${present}" target="_blank" class="bg-slate-900 text-white px-2 py-1 rounded text-xs font-black uppercase hover:bg-blue-600" title="Join as presenter">Present</a>`:''}
-            <span class="w-px h-5 bg-slate-200 mx-1"></span>
-            ${b(canStart,'bg-blue-600 text-white','▶','start')}
-            ${canUnmute?b(true,'bg-green-600 text-white','▶ Unmute','unmute'):b(canMute,'bg-amber-500 text-white','⏸','mute')}
-            ${b(canSplit,'bg-green-700 text-white','✂','split')}
-            ${b(canLeave,'bg-slate-700 text-white','⤴','leave')}
-            ${b(canEnd,'bg-red-600 text-white','■ End','end')}
-            <button onclick="removeAgent('${id}')" title="Remove card" class="text-slate-300 hover:text-red-500 px-1 text-sm">✕</button>
-          </div>
-        </td>
-      </tr>`;
+    const id=a.id, st=statusOf(a), streaming=isStreaming(st);
+    const rowCls=st==='error'?'error-row':(streaming?'active-row':(a.online?'':'offline-row'));
+    const showCb=armMode&&eligible(a), checked=selected[id]?'checked':'';
+    const sid=a.sessionId||'', pass=a.passcode||'';
+    const attend=sid?`https://attend.wordly.ai/enter/${encodeURIComponent(sid)}`:'';
+    const present=sid?`https://join.wordly.ai/enter/${encodeURIComponent(sid)}${pass?`?key=${encodeURIComponent(pass)}`:''}`:'';
+    const canStart=a.online&&st==='idle'&&a.configReady, canMute=a.online&&st==='live', canUnmute=a.online&&st==='muted',
+          canSplit=a.online&&(st==='live'||st==='muted'), canLeave=a.online&&streaming, canEnd=a.online&&streaming;
+    const b=(ok,cls,label,act)=>`<button ${ok?'':'disabled'} onclick="rowCmd('${id}','${act}')" class="px-2 py-1 rounded text-xs font-bold ${ok?cls:'bg-slate-100 text-slate-300 cursor-not-allowed'}">${label}</button>`;
+    return `<tr class="${rowCls}">
+      <td class="px-2 py-3">${showCb?`<input type="checkbox" ${checked} onchange="toggleSel('${id}',this)" class="w-4 h-4 cursor-pointer">`:''}</td>
+      <td class="px-3 py-3"><span class="px-2 py-0.5 rounded text-xs font-black uppercase ${badge(st)}">${st}</span></td>
+      <td class="px-3 py-3"><div class="font-bold text-base">${esc(a.label||'—')}</div><div class="text-[11px] text-slate-400 font-mono">${esc(id)}</div>${(!a.configReady&&a.online)?'<div class="text-[11px] text-amber-600 font-bold">⚠ not configured</div>':''}</td>
+      <td class="px-3 py-3"><span class="font-mono font-bold text-blue-600 tracking-tight">${esc(sid||'—')}</span></td>
+      <td class="px-3 py-3 text-slate-600">${esc(a.deviceLabel||'—')}</td>
+      <td class="px-3 py-3 age-cell" data-id="${id}" data-started="${streaming&&a.startedAt?a.startedAt:''}" data-ended="${(!streaming&&a.endedAt)?a.endedAt:''}"></td>
+      <td class="px-3 py-3"><div class="flex items-center justify-end gap-1.5 whitespace-nowrap">
+        ${attend?`<a href="${attend}" target="_blank" class="text-blue-600 text-xs font-black uppercase hover:underline px-1">Attend</a>`:''}
+        ${present?`<a href="${present}" target="_blank" class="bg-slate-900 text-white px-2 py-1 rounded text-xs font-black uppercase hover:bg-blue-600">Present</a>`:''}
+        <span class="w-px h-5 bg-slate-200 mx-1"></span>
+        ${b(canStart,'bg-blue-600 text-white','▶','start')}
+        ${canUnmute?b(true,'bg-green-600 text-white','▶ Unmute','unmute'):b(canMute,'bg-amber-500 text-white','⏸','mute')}
+        ${b(canSplit,'bg-green-700 text-white','✂','split')}
+        ${b(canLeave,'bg-slate-700 text-white','⤴','leave')}
+        ${b(canEnd,'bg-red-600 text-white','■ End','end')}
+        <button onclick="removeAgent('${id}')" title="Remove card" class="text-slate-300 hover:text-red-500 px-1 text-sm">✕</button>
+      </div></td></tr>`;
   }
+  function tick(){ document.querySelectorAll('.age-cell').forEach(td=>{ const s=td.getAttribute('data-started'), e=td.getAttribute('data-ended'); if(s)td.innerHTML=`<span class="font-mono font-bold text-slate-800">${fmtDur(Date.now()-Number(s))}</span>`; else if(e)td.innerHTML=`<span class="text-slate-400 text-xs">ended ${ago(Number(e))}</span>`; else td.innerHTML='<span class="text-slate-300">—</span>'; }); }
+  setInterval(tick,1000);
 
-  // ── Age ticker (updates every second without full re-render) ──
-  function tick(){
-    document.querySelectorAll('.age-cell').forEach(td => {
-      const started = td.getAttribute('data-started');
-      const ended   = td.getAttribute('data-ended');
-      if (started) td.innerHTML = `<span class="font-mono font-bold text-slate-800">${fmtDur(Date.now()-Number(started))}</span>`;
-      else if (ended) td.innerHTML = `<span class="text-slate-400 text-xs">ended ${ago(Number(ended))}</span>`;
-      else td.innerHTML = '<span class="text-slate-300">—</span>';
-    });
-  }
-  setInterval(tick, 1000);
-
-  // ── Filters ──
-  function toggleFilter(w){ filter = (filter===w)?null:w; render(); }
+  function toggleFilter(w){ filter=(filter===w)?null:w; render(); }
   function updateFilterUI(){
-    const a = document.getElementById('activeBox'), i = document.getElementById('inactiveBox');
-    a.classList.toggle('ring-2', filter==='active');
-    a.classList.toggle('ring-green-500', filter==='active');
-    a.classList.toggle('ring-offset-1', filter==='active');
-    i.classList.toggle('ring-2', filter==='inactive');
-    i.classList.toggle('ring-slate-500', filter==='inactive');
-    i.classList.toggle('ring-offset-1', filter==='inactive');
-    i.classList.toggle('bg-slate-100', filter==='inactive');
+    const a=document.getElementById('activeBox'),i=document.getElementById('inactiveBox');
+    a.classList.toggle('ring-2',filter==='active'); a.classList.toggle('ring-green-500',filter==='active'); a.classList.toggle('ring-offset-1',filter==='active');
+    i.classList.toggle('ring-2',filter==='inactive'); i.classList.toggle('ring-slate-500',filter==='inactive'); i.classList.toggle('ring-offset-1',filter==='inactive'); i.classList.toggle('bg-slate-100',filter==='inactive');
   }
-
-  // ── Confirm helper ──
-  function sure(msg){ return window.confirm(msg); }
-
-  // ── Per-row command ──
-  function rowCmd(id, action){
-    const a = agentData[id] || {};
-    const name = a.label || id;
-    const verb = { start:'Start', mute:'Mute', unmute:'Unmute', split:'Split transcript for', leave:'Leave (session continues) for', end:'END SESSION for everyone in' }[action] || action;
-    if (!sure(`${verb} “${name}”?`)) return;
-    if (action==='end' || action==='leave') intentional[id] = true;
-    sendCmd(id, action);
+  function sure(m){ return window.confirm(m); }
+  function rowCmd(id,action){
+    const a=agentData[id]||{}, name=a.label||id;
+    const verb={start:'Start',mute:'Mute',unmute:'Unmute',split:'Split transcript for',leave:'Leave (session continues) for',end:'END SESSION for everyone in'}[action]||action;
+    if(!sure(`${verb} “${name}”?`))return;
+    if(action==='end'||action==='leave')intentional[id]=true;
+    sendCmd(id,action);
   }
-  function sendCmd(id, action){
-    const cid = 'cmd-' + Date.now() + '-' + Math.random().toString(36).slice(2,6);
-    db.ref('agents/'+id+'/command').set({
-      id: cid, action, by: (auth.currentUser&&auth.currentUser.email)||'unknown',
-      ts: firebase.database.ServerValue.TIMESTAMP
-    });
+  function sendCmd(id,action){
+    db.ref(agentPath(id)+'/command').set({ id:'cmd-'+Date.now()+'-'+Math.random().toString(36).slice(2,6), action, by:(user&&user.email)||'unknown', ts:firebase.database.ServerValue.TIMESTAMP });
   }
-
-  // ── Bulk arm-or-fire ──
   function armOrFire(mode){
-    if (armMode === null){
-      armMode = mode;
-      prevFilter = filter;
-      filter = (mode === 'start') ? 'inactive' : 'active';  // Start -> startable rooms; others -> live rooms
-      render(); return;
-    }
-    if (armMode !== mode) return;               // another mode armed; ignore
-    const ids = Object.keys(selected);
-    if (!ids.length){ cancelArm(); return; }
-    const verb = { start:'Start', mute:'Mute', split:'Split', end:'END SESSION for' }[mode];
-    if (!sure(`${verb} ${ids.length} selected room${ids.length===1?'':'s'}?`)) return;
-    ids.forEach(id => { if (mode==='end') intentional[id]=true; sendCmd(id, mode); });
+    if(armMode===null){ armMode=mode; prevFilter=filter; filter=(mode==='start')?'inactive':'active'; render(); return; }
+    if(armMode!==mode)return;
+    const ids=Object.keys(selected); if(!ids.length){cancelArm();return;}
+    const verb={start:'Start',mute:'Mute',split:'Split',end:'END SESSION for'}[mode];
+    if(!sure(`${verb} ${ids.length} selected room${ids.length===1?'':'s'}?`))return;
+    ids.forEach(id=>{ if(mode==='end')intentional[id]=true; sendCmd(id,mode); });
     cancelArm();
   }
-  function cancelArm(){ armMode = null; selected = {}; filter = prevFilter; prevFilter = null; render(); }
-  function toggleSel(id, el){ if (el.checked) selected[id]=true; else delete selected[id]; updateArmUI(); }
-  function toggleSelectAll(el){
-    document.querySelectorAll('#tbody input[type=checkbox]').forEach(cb => { cb.checked = el.checked; cb.dispatchEvent(new Event('change')); });
-  }
+  function cancelArm(){ armMode=null; selected={}; filter=prevFilter; prevFilter=null; render(); }
+  function toggleSel(id,el){ if(el.checked)selected[id]=true; else delete selected[id]; updateArmUI(); }
+  function toggleSelectAll(el){ document.querySelectorAll('#tbody input[type=checkbox]').forEach(cb=>{cb.checked=el.checked;cb.dispatchEvent(new Event('change'));}); }
   function updateArmUI(){
-    const bulk = ['start','mute','split','end'];
-    document.getElementById('bulk-cancel').hidden = armMode === null;
-    document.getElementById('selectAll').hidden = armMode === null;
-    const count = Object.keys(selected).length;
-    bulk.forEach(m => {
-      const btn = document.getElementById('bulk-'+m);
-      const on = armMode === m;
-      const dim = armMode && !on;
-      btn.className = `border px-3 py-2 rounded-lg text-xs font-bold uppercase ${on?'bg-blue-600 text-white border-blue-600':'bg-white hover:bg-slate-50'} ${dim?'opacity-40 pointer-events-none':''}`;
-    });
-    if (armMode){
-      const lbl = { start:'▶ Start', mute:'⏸ Mute', split:'✂ Split', end:'■ End' }[armMode];
-      document.getElementById('bulk-'+armMode).textContent = `${lbl} (${count})`;
-    } else {
-      document.getElementById('bulk-start').textContent='▶ Start';
-      document.getElementById('bulk-mute').textContent='⏸ Mute';
-      document.getElementById('bulk-split').textContent='✂ Split';
-      document.getElementById('bulk-end').textContent='■ End';
-    }
+    document.getElementById('bulk-cancel').hidden=armMode===null;
+    document.getElementById('selectAll').hidden=armMode===null;
+    const count=Object.keys(selected).length;
+    ['start','mute','split','end'].forEach(m=>{ const btn=document.getElementById('bulk-'+m),on=armMode===m,dim=armMode&&!on;
+      btn.className=`border px-3 py-2 rounded-lg text-xs font-bold uppercase ${on?'bg-blue-600 text-white border-blue-600':'bg-white hover:bg-slate-50'} ${dim?'opacity-40 pointer-events-none':''}`; });
+    if(armMode){ document.getElementById('bulk-'+armMode).textContent=`${({start:'▶ Start',mute:'⏸ Mute',split:'✂ Split',end:'■ End'})[armMode]} (${count})`; }
+    else { document.getElementById('bulk-start').textContent='▶ Start'; document.getElementById('bulk-mute').textContent='⏸ Mute'; document.getElementById('bulk-split').textContent='✂ Split'; document.getElementById('bulk-end').textContent='■ End'; }
   }
-
-  // ── Drop alerts ──
-  function triggerDrop(id, a){
-    dropAlerts.push({ id, name: a.label||id, at: new Date() });
-    renderDropBanner(); beep();
-    if (window.Notification && Notification.permission==='granted') {
-      try { new Notification('Room dropped', { body: `${a.label||id} is no longer live.` }); } catch(e){}
-    }
-  }
-  function renderDropBanner(){
-    const el = document.getElementById('dropBanner');
-    if (!dropAlerts.length){ el.hidden = true; el.innerHTML=''; return; }
-    el.hidden = false;
-    el.innerHTML = dropAlerts.map((d,i)=>`<div class="flex items-center justify-between">
-      <span class="font-black text-sm">⚠ DROPPED: ${esc(d.name)} — ${d.at.toLocaleTimeString()}</span>
-      <button onclick="ackDrop(${i})" class="bg-white/20 hover:bg-white/30 px-2 py-1 rounded text-xs font-bold uppercase">Acknowledge</button></div>`).join('');
-  }
+  function triggerDrop(id,a){ dropAlerts.push({id,name:a.label||id,at:new Date()}); renderDropBanner(); beep(); if(window.Notification&&Notification.permission==='granted'){try{new Notification('Room dropped',{body:`${a.label||id} is no longer live.`});}catch(e){}} }
+  function renderDropBanner(){ const el=document.getElementById('dropBanner'); if(!dropAlerts.length){el.hidden=true;el.innerHTML='';return;} el.hidden=false; el.innerHTML=dropAlerts.map((d,i)=>`<div class="flex items-center justify-between"><span class="font-black text-sm">⚠ DROPPED: ${esc(d.name)} — ${d.at.toLocaleTimeString()}</span><button onclick="ackDrop(${i})" class="bg-white/20 hover:bg-white/30 px-2 py-1 rounded text-xs font-bold uppercase">Acknowledge</button></div>`).join(''); }
   function ackDrop(i){ dropAlerts.splice(i,1); renderDropBanner(); }
-  function beep(){
-    try{
-      if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-      const o=audioCtx.createOscillator(), g=audioCtx.createGain();
-      o.connect(g); g.connect(audioCtx.destination);
-      g.gain.setValueAtTime(0.3,audioCtx.currentTime);
-      o.frequency.setValueAtTime(880,audioCtx.currentTime);
-      o.frequency.setValueAtTime(660,audioCtx.currentTime+0.15);
-      g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.6);
-      o.start(); o.stop(audioCtx.currentTime+0.6);
-    }catch(e){}
-  }
-  document.addEventListener('DOMContentLoaded', () => {
-    const ad = document.getElementById('alertDrops');
-    if (ad) ad.addEventListener('change', e => {
-      if (e.target.checked){
-        if(!audioCtx){ try{ audioCtx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
-        if (window.Notification && Notification.permission==='default') Notification.requestPermission();
-      }
-    });
+  function beep(){ try{ if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)(); const o=audioCtx.createOscillator(),g=audioCtx.createGain(); o.connect(g);g.connect(audioCtx.destination); g.gain.setValueAtTime(0.3,audioCtx.currentTime); o.frequency.setValueAtTime(880,audioCtx.currentTime); o.frequency.setValueAtTime(660,audioCtx.currentTime+0.15); g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.6); o.start();o.stop(audioCtx.currentTime+0.6);}catch(e){} }
+  document.addEventListener('DOMContentLoaded',()=>{ const ad=document.getElementById('alertDrops'); if(ad)ad.addEventListener('change',e=>{ if(e.target.checked){ if(!audioCtx){try{audioCtx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}} if(window.Notification&&Notification.permission==='default')Notification.requestPermission(); } }); });
+
+  function removeAgent(id){ if(!sure('Remove this card?\n(If the device is still open, it re-appears on its next check-in.)'))return; db.ref(agentPath(id)).remove(); }
+  function clearOffline(){ db.ref('events/'+currentEventId+'/agents').once('value').then(snap=>{ const all=snap.val()||{}; const off=Object.keys(all).filter(k=>!all[k].online); if(!off.length){alert('No offline agents to clear.');return;} if(!sure(`Remove ${off.length} offline card${off.length===1?'':'s'}?`))return; const u={}; off.forEach(k=>u[k]=null); db.ref('events/'+currentEventId+'/agents').update(u); }); }
+  document.getElementById('search').addEventListener('input',render);
+
+  // ── CSV / XLSX bulk link generator ──
+  let mergedData=null, mergedHeaders=null, mergedIsCSV=false;
+  function parseCSV(text){ const rows=[]; let row=[],cur='',q=false; for(let i=0;i<text.length;i++){const c=text[i]; if(q){ if(c==='"'&&text[i+1]==='"'){cur+='"';i++;} else if(c==='"'){q=false;} else cur+=c; } else { if(c==='"')q=true; else if(c===','){row.push(cur);cur='';} else if(c==='\n'){row.push(cur);rows.push(row);row=[];cur='';} else if(c==='\r'){} else cur+=c; } } if(cur!==''||row.length){row.push(cur);rows.push(row);} return rows; }
+  function toCSVRow(arr){ return arr.map(v=>{ v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }).join(','); }
+  function col(headers,names){ return headers.findIndex(h=>{const l=String(h||'').toLowerCase(); return names.some(n=>l.indexOf(n)!==-1);}); }
+  document.getElementById('csv-input').addEventListener('change', e=>{
+    const file=e.target.files[0]; if(!file)return;
+    const msg=document.getElementById('csv-msg'); msg.textContent='Reading…';
+    const isCSV=file.name.toLowerCase().endsWith('.csv'); mergedIsCSV=isCSV;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      let rows;
+      if(isCSV) rows=parseCSV(ev.target.result);
+      else { const wb=XLSX.read(ev.target.result,{type:'array'}); rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1}); }
+      processRows(rows);
+    };
+    if(isCSV) reader.readAsText(file); else reader.readAsArrayBuffer(file);
   });
-
-  // ── Clear / remove cards ──
-  function removeAgent(id){
-    if (!sure('Remove this card?\n(If the device is still open, it re-appears on its next check-in.)')) return;
-    db.ref('agents/'+id).remove();
+  function processRows(rows){
+    const msg=document.getElementById('csv-msg');
+    if(!rows||!rows.length){ msg.textContent='Empty file.'; return; }
+    const headers=rows[0].map(h=>String(h==null?'':h));
+    const sIdx=col(headers,['session']), pIdx=col(headers,['passcode','pass','key']), nIdx=col(headers,['name','room','presenter','label']);
+    if(sIdx===-1){ msg.textContent='No "session" column found.'; msg.className='text-xs text-red-600'; return; }
+    const linkCol=headers.length; headers[linkCol]='leg_link';
+    const out=[headers];
+    for(let r=1;r<rows.length;r++){
+      const row=(rows[r]||[]).slice();
+      const sid=String(row[sIdx]||'').trim(); if(!sid){continue;}
+      const pass=pIdx!==-1?String(row[pIdx]||'').trim():'';
+      const name=nIdx!==-1?String(row[nIdx]||'').trim():'';
+      let link=AGENT_BASE+'?event='+encodeURIComponent(currentEventId)+'&session='+encodeURIComponent(sid);
+      if(pass) link+='&passcode='+encodeURIComponent(pass);
+      if(name) link+='&name='+encodeURIComponent(name);
+      row[linkCol]=link; out.push(row);
+    }
+    mergedData=out; mergedHeaders=headers;
+    msg.textContent=(out.length-1)+' links generated.'; msg.className='text-xs text-green-600';
+    document.getElementById('csv-download').hidden=false;
+    // preview
+    const prev=out.slice(0,6).map((r,i)=>`<tr class="${i===0?'bg-slate-900 text-slate-200 text-xs uppercase':''}">`+r.map(c=>`<td class="border px-2 py-1 text-xs ${i===0?'font-black':''}">${esc(c)}</td>`).join('')+`</tr>`).join('');
+    document.getElementById('csv-preview').innerHTML=`<table class="border-collapse w-full">${prev}</table>`+(out.length>6?`<div class="text-xs text-slate-400 italic mt-1">…and ${out.length-6} more rows in the download</div>`:'');
   }
-  function clearOffline(){
-    db.ref('agents').once('value').then(snap => {
-      const all = snap.val() || {};
-      const offline = Object.keys(all).filter(k => !all[k].online);
-      if (!offline.length){ alert('No offline agents to clear.'); return; }
-      if (!sure(`Remove ${offline.length} offline card${offline.length===1?'':'s'}?`)) return;
-      const updates = {}; offline.forEach(k => updates[k]=null);
-      db.ref('agents').update(updates);
-    });
+  function downloadMerged(){
+    if(!mergedData)return;
+    let blob, fname;
+    if(mergedIsCSV){ const csv=mergedData.map(toCSVRow).join('\n'); blob=new Blob([csv],{type:'text/csv'}); fname='leg_links.csv'; }
+    else { const ws=XLSX.utils.aoa_to_sheet(mergedData); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'links'); const out=XLSX.write(wb,{bookType:'xlsx',type:'array'}); blob=new Blob([out],{type:'application/octet-stream'}); fname='leg_links.xlsx'; }
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=fname; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
   }
-
-  document.getElementById('search').addEventListener('input', render);
 </script>
 </body>
 </html>

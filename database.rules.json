@@ -1,9 +1,29 @@
 {
   "rules": {
-    "agents": {
+    "users": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid == $uid"
+      }
+    },
+    "usersByEmail": {
       ".read": "auth != null",
-      "$agentId": {
-        ".write": "auth != null"
+      "$emailKey": { ".write": "auth != null" }
+    },
+    "userEvents": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        "$eventId": { ".write": "auth != null" }
+      }
+    },
+    "events": {
+      "$eventId": {
+        ".read":  "auth != null && (!data.exists() || data.child('ownerUid').val() == auth.uid || data.child('members').child(auth.uid).exists())",
+        ".write": "auth != null && (!data.exists() || data.child('ownerUid').val() == auth.uid || data.child('members').child(auth.uid).exists())",
+        "agents": {
+          ".read": "auth != null",
+          "$agentId": { ".write": "auth != null" }
+        }
       }
     }
   }
