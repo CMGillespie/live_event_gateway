@@ -622,20 +622,23 @@
   function processRows(rows){
     const msg=document.getElementById('csv-msg');
     if(!rows||!rows.length){ msg.textContent='Empty file.'; return; }
-    const headers=rows[0].map(h=>String(h==null?'':h));
-    const sIdx=col(headers,['session']), pIdx=col(headers,['passcode','pass','key']), nIdx=col(headers,['name','room','presenter','label']);
+    const h0=rows[0].map(h=>String(h==null?'':h));
+    const sIdx=col(h0,['session']), pIdx=col(h0,['passcode']), nIdx=col(h0,['name','room','presenter']);
     if(sIdx===-1){ msg.textContent='No "session" column found.'; msg.className='text-xs text-red-600'; return; }
-    const linkCol=headers.length; headers[linkCol]='leg_link';
+    // Drop any pre-existing leg_link column(s) so re-running never duplicates
+    const drop=h0.map((h,i)=>/leg_link/i.test(h)?i:-1).filter(i=>i>=0);
+    const keep=i=>drop.indexOf(i)===-1;
+    const headers=h0.filter((_,i)=>keep(i)); headers.push('leg_link');
     const out=[headers];
     for(let r=1;r<rows.length;r++){
-      const row=(rows[r]||[]).slice();
-      const sid=cleanCell(row[sIdx]); if(!sid){continue;}
-      const pass=pIdx!==-1?cleanCell(row[pIdx]):'';
-      const name=nIdx!==-1?cleanCell(row[nIdx]):'';
+      const src=rows[r]||[];
+      const sid=cleanCell(src[sIdx]); if(!sid){continue;}
+      const pass=pIdx!==-1?cleanCell(src[pIdx]):'';
+      const name=nIdx!==-1?cleanCell(src[nIdx]):'';
       let link=AGENT_BASE+'?event='+encodeURIComponent(currentEventId)+'&session='+encodeURIComponent(sid);
       if(pass) link+='&passcode='+encodeURIComponent(pass);
       if(name) link+='&name='+encodeURIComponent(name);
-      row[linkCol]=link; out.push(row);
+      const row=src.filter((_,i)=>keep(i)); row.push(link); out.push(row);
     }
     mergedData=out; mergedHeaders=headers;
     msg.textContent=(out.length-1)+' links generated.'; msg.className='text-xs text-green-600';
