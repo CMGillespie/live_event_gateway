@@ -65,6 +65,52 @@
       <span class="text-xs text-slate-400 font-mono" id="event-id-label"></span>
     </div>
 
+    <!-- tabs -->
+    <div class="flex gap-1 mb-4 border-b border-slate-200">
+      <button id="tabbtn-details" onclick="showTab('details')" class="px-4 py-2 font-bold text-sm border-b-2 border-transparent">Details</button>
+      <button id="tabbtn-rooms"   onclick="showTab('rooms')"   class="px-4 py-2 font-bold text-sm border-b-2 border-transparent">Rooms &amp; Control</button>
+    </div>
+
+    <!-- ── DETAILS TAB (the event's portal) ── -->
+    <div id="tab-details" hidden class="max-w-4xl">
+      <div class="grid gap-3 mb-3" style="grid-template-columns:1fr 1fr">
+        <div><label class="text-xs font-black uppercase text-slate-500">Event name</label><input id="d-name" class="w-full px-3 py-2 border rounded-lg text-sm mt-1"></div>
+        <div><label class="text-xs font-black uppercase text-slate-500">Organization</label><input id="d-org" class="w-full px-3 py-2 border rounded-lg text-sm mt-1"></div>
+        <div class="col-span-2" style="grid-column:span 2"><label class="text-xs font-black uppercase text-slate-500">Title / description</label><input id="d-title" class="w-full px-3 py-2 border rounded-lg text-sm mt-1"></div>
+        <div><label class="text-xs font-black uppercase text-slate-500">City</label><input id="d-city" class="w-full px-3 py-2 border rounded-lg text-sm mt-1"></div>
+        <div class="grid gap-2" style="grid-template-columns:1fr 1fr">
+          <div><label class="text-xs font-black uppercase text-slate-500">Start date</label><input type="date" id="d-start" class="w-full px-3 py-2 border rounded-lg text-sm mt-1"></div>
+          <div><label class="text-xs font-black uppercase text-slate-500">End date</label><input type="date" id="d-end" class="w-full px-3 py-2 border rounded-lg text-sm mt-1"></div>
+        </div>
+        <div><label class="text-xs font-black uppercase text-slate-500">Facilities (one per line)</label><textarea id="d-facilities" rows="3" class="w-full px-3 py-2 border rounded-lg text-sm mt-1"></textarea></div>
+        <div><label class="text-xs font-black uppercase text-slate-500">Rooms (one per line)</label><textarea id="d-rooms" rows="3" class="w-full px-3 py-2 border rounded-lg text-sm mt-1"></textarea></div>
+      </div>
+
+      <div class="mb-3">
+        <div class="flex items-center justify-between mb-1"><label class="text-xs font-black uppercase text-slate-500">Customer contacts</label><button onclick="addContactRow()" class="text-xs font-bold text-blue-600">+ Add contact</button></div>
+        <div id="contacts-rows" class="grid gap-2"></div>
+      </div>
+
+      <div class="mb-3">
+        <div class="flex items-center justify-between mb-1"><label class="text-xs font-black uppercase text-slate-500">Document links</label><button onclick="addDocLinkRow()" class="text-xs font-bold text-blue-600">+ Add link</button></div>
+        <div id="doclink-rows" class="grid gap-2"></div>
+      </div>
+
+      <div class="mb-3">
+        <label class="text-xs font-black uppercase text-slate-500">Customer documents (upload)</label>
+        <div class="flex items-center gap-3 mt-1"><input type="file" id="doc-file" class="text-sm"><span id="doc-msg" class="text-xs text-slate-500"></span></div>
+        <div id="docfiles-list" class="mt-2 flex flex-col gap-1"></div>
+      </div>
+
+      <div class="flex items-center gap-3 pt-2 border-t">
+        <button onclick="saveDetails()" class="bg-green-700 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-green-800">Save details</button>
+        <span id="details-msg" class="text-sm"></span>
+      </div>
+    </div>
+
+    <!-- ── ROOMS & CONTROL TAB ── -->
+    <div id="tab-rooms">
+
     <!-- link + share -->
     <div class="grid gap-3 mb-4" style="grid-template-columns:1fr 1fr">
       <div class="bg-slate-100 border rounded-xl p-3">
@@ -141,12 +187,14 @@
       </table>
     </div>
     <div id="empty" class="text-center text-slate-400 italic font-bold uppercase tracking-widest py-16" hidden>No rooms checked into this event yet — open its room link on a device.</div>
+    </div><!-- /tab-rooms -->
   </div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-storage-compat.js"></script>
 <script src="firebase-config.js"></script>
 <script>
   const db = firebase.database();
@@ -181,7 +229,7 @@
       user = u;
       document.getElementById('signin').hidden = true;
       document.getElementById('app').hidden = false;
-      document.getElementById('who-email').textContent = u.email || u.displayName || '';
+      document.getElementById('who-email').textContent = (u.displayName ? u.displayName + '  ·  ' : '') + (u.email || '');
       // self-register in directory so others can invite by email
       db.ref('users/'+u.uid).update({ email:u.email||'', name:u.displayName||'', lastSeen: firebase.database.ServerValue.TIMESTAMP });
       if (u.email) db.ref('usersByEmail/'+emailKey(u.email)).set(u.uid);
@@ -209,12 +257,22 @@
     list.innerHTML = ids.map(id => {
       const role = (typeof map[id] === 'object' ? map[id].role : map[id]) || 'member';
       const name = (typeof map[id] === 'object' ? map[id].name : '') || id;
-      return `<div class="border rounded-xl p-4 bg-white shadow-sm cursor-pointer hover:border-blue-400" onclick="openEvent('${id}')">
-        <div class="font-black text-lg">${esc(name)}</div>
-        <div class="text-xs text-slate-400 font-mono mt-1">${esc(id)}</div>
+      return `<div class="border rounded-xl p-4 bg-white shadow-sm cursor-pointer hover:border-blue-400" id="ev-card-${id}" onclick="openEvent('${id}')">
+        <div class="font-black text-lg" data-f="name">${esc(name)}</div>
+        <div class="text-xs text-slate-500 mt-1" data-f="meta"></div>
+        <div class="text-xs text-slate-400 mt-1" data-f="contact"></div>
         <div class="mt-2"><span class="text-xs font-bold uppercase px-2 py-0.5 rounded ${role==='owner'?'bg-blue-100 text-blue-700':'bg-slate-100 text-slate-500'}">${role}</span></div>
       </div>`;
     }).join('');
+    // enrich each card with dates / city / main contact
+    ids.forEach(id => db.ref('events/'+id).once('value').then(s => {
+      const e = s.val() || {}, card = document.getElementById('ev-card-'+id); if (!card) return;
+      card.querySelector('[data-f=name]').textContent = e.name || id;
+      const dates = [e.startDate, e.endDate].filter(Boolean).join(' → ');
+      card.querySelector('[data-f=meta]').textContent = [dates, e.city].filter(Boolean).join('  ·  ');
+      const c = (e.contacts && e.contacts[0]) || null;
+      card.querySelector('[data-f=contact]').textContent = c ? ('☎ ' + [c.name, c.email].filter(Boolean).join(' · ')) : '';
+    }));
   }
   function createNewEvent(){
     const nameEl = document.getElementById('new-event-name');
@@ -237,6 +295,8 @@
       document.getElementById('event-id-label').textContent = id;
       document.getElementById('event-link').value = AGENT_BASE + '?event=' + encodeURIComponent(id);
       renderMembers();
+      loadDetails();
+      showTab('rooms');
       document.getElementById('events-view').hidden = true;
       document.getElementById('event-view').hidden = false;
       // watch this event's agents
@@ -292,6 +352,112 @@
       db.ref('events/'+currentEventId+'/members/'+uid).remove(),
       db.ref('userEvents/'+uid+'/'+currentEventId).remove()
     ]).then(()=>{ if(currentEvent.members) delete currentEvent.members[uid]; renderMembers(); });
+  }
+
+  // ── Tabs ──
+  function showTab(which){
+    document.getElementById('tab-details').hidden = which !== 'details';
+    document.getElementById('tab-rooms').hidden   = which !== 'rooms';
+    const on='border-blue-600 text-blue-600', off='border-transparent text-slate-500';
+    document.getElementById('tabbtn-details').className = 'px-4 py-2 font-bold text-sm border-b-2 ' + (which==='details'?on:off);
+    document.getElementById('tabbtn-rooms').className   = 'px-4 py-2 font-bold text-sm border-b-2 ' + (which==='rooms'?on:off);
+  }
+
+  // ── Details form ──
+  function loadDetails(){
+    const e = currentEvent || {};
+    const set = (id,v)=>{ const el=document.getElementById(id); if(el) el.value=v||''; };
+    set('d-name', e.name); set('d-org', e.organization); set('d-title', e.title); set('d-city', e.city);
+    set('d-start', e.startDate); set('d-end', e.endDate);
+    set('d-facilities', (e.facilities||[]).join('\n')); set('d-rooms', (e.rooms||[]).join('\n'));
+    document.getElementById('contacts-rows').innerHTML='';
+    (e.contacts||[]).forEach(addContactRow); if(!(e.contacts||[]).length) addContactRow();
+    document.getElementById('doclink-rows').innerHTML='';
+    (e.docLinks||[]).forEach(addDocLinkRow); if(!(e.docLinks||[]).length) addDocLinkRow();
+    renderDocFiles();
+    document.getElementById('details-msg').textContent='';
+  }
+  function addContactRow(c){
+    c=c||{};
+    const div=document.createElement('div');
+    div.className='contact-row grid gap-2'; div.style.gridTemplateColumns='1fr 1fr 1fr auto';
+    div.innerHTML=`<input class="c-name px-3 py-2 border rounded-lg text-sm" placeholder="Name" value="${esc(c.name||'')}">
+      <input class="c-email px-3 py-2 border rounded-lg text-sm" placeholder="Email" value="${esc(c.email||'')}">
+      <input class="c-phone px-3 py-2 border rounded-lg text-sm" placeholder="Phone" value="${esc(c.phone||'')}">
+      <button onclick="this.parentNode.remove()" class="text-slate-400 hover:text-red-600 px-2">✕</button>`;
+    document.getElementById('contacts-rows').appendChild(div);
+  }
+  function gatherContacts(){
+    return Array.from(document.querySelectorAll('#contacts-rows .contact-row')).map(r=>({
+      name:r.querySelector('.c-name').value.trim(), email:r.querySelector('.c-email').value.trim(), phone:r.querySelector('.c-phone').value.trim()
+    })).filter(c=>c.name||c.email||c.phone);
+  }
+  function addDocLinkRow(d){
+    d=d||{};
+    const div=document.createElement('div');
+    div.className='doclink-row grid gap-2'; div.style.gridTemplateColumns='1fr 2fr auto';
+    div.innerHTML=`<input class="dl-label px-3 py-2 border rounded-lg text-sm" placeholder="Label" value="${esc(d.label||'')}">
+      <input class="dl-url px-3 py-2 border rounded-lg text-sm" placeholder="https://…" value="${esc(d.url||'')}">
+      <button onclick="this.parentNode.remove()" class="text-slate-400 hover:text-red-600 px-2">✕</button>`;
+    document.getElementById('doclink-rows').appendChild(div);
+  }
+  function gatherDocLinks(){
+    return Array.from(document.querySelectorAll('#doclink-rows .doclink-row')).map(r=>({
+      label:r.querySelector('.dl-label').value.trim(), url:r.querySelector('.dl-url').value.trim()
+    })).filter(d=>d.url);
+  }
+  function saveDetails(){
+    if(!currentEventId) return;
+    const name=document.getElementById('d-name').value.trim() || currentEvent.name || 'Untitled';
+    const patch={
+      name,
+      organization:document.getElementById('d-org').value.trim(),
+      title:document.getElementById('d-title').value.trim(),
+      city:document.getElementById('d-city').value.trim(),
+      startDate:document.getElementById('d-start').value,
+      endDate:document.getElementById('d-end').value,
+      facilities:document.getElementById('d-facilities').value.split('\n').map(s=>s.trim()).filter(Boolean),
+      rooms:document.getElementById('d-rooms').value.split('\n').map(s=>s.trim()).filter(Boolean),
+      contacts:gatherContacts(),
+      docLinks:gatherDocLinks()
+    };
+    const msg=document.getElementById('details-msg'); msg.textContent='Saving…'; msg.className='text-sm text-slate-500';
+    db.ref('events/'+currentEventId).update(patch).then(()=>{
+      Object.assign(currentEvent,patch);
+      document.getElementById('event-title').textContent=name;
+      db.ref('userEvents/'+user.uid+'/'+currentEventId+'/name').set(name);
+      msg.textContent='Saved ✓'; msg.className='text-sm text-green-600';
+    }).catch(e=>{ msg.textContent='Save failed: '+e.message; msg.className='text-sm text-red-600'; });
+  }
+
+  // ── Customer documents (Firebase Storage; graceful if not enabled) ──
+  document.getElementById('doc-file').addEventListener('change', function(ev){
+    const file=ev.target.files[0]; if(!file||!currentEventId) return;
+    const msg=document.getElementById('doc-msg');
+    let storage; try { storage=firebase.storage(); } catch(e){ msg.textContent='Uploads need Firebase Storage enabled (Build → Storage; may prompt Blaze). Links work without it.'; msg.className='text-xs text-amber-600'; return; }
+    msg.textContent='Uploading…'; msg.className='text-xs text-slate-500';
+    const path='event-docs/'+currentEventId+'/'+Date.now()+'_'+file.name;
+    storage.ref(path).put(file)
+      .then(snap=>snap.ref.getDownloadURL())
+      .then(url=>db.ref('events/'+currentEventId+'/docFiles').push({ name:file.name, path, url, size:file.size, at:firebase.database.ServerValue.TIMESTAMP }))
+      .then(()=>{ msg.textContent='Uploaded ✓'; msg.className='text-xs text-green-600'; ev.target.value='';
+        return db.ref('events/'+currentEventId+'/docFiles').once('value').then(s=>{ currentEvent.docFiles=s.val()||{}; renderDocFiles(); }); })
+      .catch(e=>{ msg.textContent='Upload failed: '+e.message+' (Storage may not be enabled.)'; msg.className='text-xs text-amber-600'; });
+  });
+  function renderDocFiles(){
+    const wrap=document.getElementById('docfiles-list'); if(!wrap) return;
+    const files=(currentEvent&&currentEvent.docFiles)||{}; const keys=Object.keys(files);
+    wrap.innerHTML = keys.length ? keys.map(k=>{ const f=files[k];
+      return `<div class="flex items-center gap-2 text-sm"><a href="${esc(f.url)}" target="_blank" class="text-blue-600 hover:underline">📎 ${esc(f.name)}</a><span class="text-xs text-slate-400">${f.size?Math.round(f.size/1024)+' KB':''}</span><button onclick="removeDocFile('${k}')" class="text-slate-400 hover:text-red-600 text-xs">✕</button></div>`;
+    }).join('') : '<div class="text-xs text-slate-400">No uploaded documents.</div>';
+  }
+  function removeDocFile(key){
+    if(!confirm('Remove this document?')) return;
+    const f=(currentEvent.docFiles||{})[key];
+    db.ref('events/'+currentEventId+'/docFiles/'+key).remove().then(()=>{
+      if(currentEvent.docFiles) delete currentEvent.docFiles[key]; renderDocFiles();
+      if(f&&f.path){ try{ firebase.storage().ref(f.path).delete().catch(()=>{}); }catch(e){} }
+    });
   }
 
   // ── Realtime agents (scoped to current event) ──
@@ -438,6 +604,8 @@
   function parseCSV(text){ const rows=[]; let row=[],cur='',q=false; for(let i=0;i<text.length;i++){const c=text[i]; if(q){ if(c==='"'&&text[i+1]==='"'){cur+='"';i++;} else if(c==='"'){q=false;} else cur+=c; } else { if(c==='"')q=true; else if(c===','){row.push(cur);cur='';} else if(c==='\n'){row.push(cur);rows.push(row);row=[];cur='';} else if(c==='\r'){} else cur+=c; } } if(cur!==''||row.length){row.push(cur);rows.push(row);} return rows; }
   function toCSVRow(arr){ return arr.map(v=>{ v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }).join(','); }
   function col(headers,names){ return headers.findIndex(h=>{const l=String(h||'').toLowerCase(); return names.some(n=>l.indexOf(n)!==-1);}); }
+  // Strip Excel/CSV formula escapes so ="430528" / =430528 / "430528" -> 430528
+  function cleanCell(v){ v=String(v==null?'':v).trim(); if(v.charAt(0)==='=') v=v.slice(1); if(v.charAt(0)==='"'&&v.charAt(v.length-1)==='"') v=v.slice(1,-1); return v.trim(); }
   document.getElementById('csv-input').addEventListener('change', e=>{
     const file=e.target.files[0]; if(!file)return;
     const msg=document.getElementById('csv-msg'); msg.textContent='Reading…';
@@ -461,9 +629,9 @@
     const out=[headers];
     for(let r=1;r<rows.length;r++){
       const row=(rows[r]||[]).slice();
-      const sid=String(row[sIdx]||'').trim(); if(!sid){continue;}
-      const pass=pIdx!==-1?String(row[pIdx]||'').trim():'';
-      const name=nIdx!==-1?String(row[nIdx]||'').trim():'';
+      const sid=cleanCell(row[sIdx]); if(!sid){continue;}
+      const pass=pIdx!==-1?cleanCell(row[pIdx]):'';
+      const name=nIdx!==-1?cleanCell(row[nIdx]):'';
       let link=AGENT_BASE+'?event='+encodeURIComponent(currentEventId)+'&session='+encodeURIComponent(sid);
       if(pass) link+='&passcode='+encodeURIComponent(pass);
       if(name) link+='&name='+encodeURIComponent(name);
@@ -478,9 +646,10 @@
   }
   function downloadMerged(){
     if(!mergedData)return;
+    const safe=((currentEvent&&currentEvent.name)?currentEvent.name:'event').replace(/[^a-zA-Z0-9_-]+/g,'_').replace(/^_+|_+$/g,'') || 'event';
     let blob, fname;
-    if(mergedIsCSV){ const csv=mergedData.map(toCSVRow).join('\n'); blob=new Blob([csv],{type:'text/csv'}); fname='leg_links.csv'; }
-    else { const ws=XLSX.utils.aoa_to_sheet(mergedData); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'links'); const out=XLSX.write(wb,{bookType:'xlsx',type:'array'}); blob=new Blob([out],{type:'application/octet-stream'}); fname='leg_links.xlsx'; }
+    if(mergedIsCSV){ const csv=mergedData.map(toCSVRow).join('\n'); blob=new Blob([csv],{type:'text/csv'}); fname='Wordly_LEG_links_'+safe+'.csv'; }
+    else { const ws=XLSX.utils.aoa_to_sheet(mergedData); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'links'); const out=XLSX.write(wb,{bookType:'xlsx',type:'array'}); blob=new Blob([out],{type:'application/octet-stream'}); fname='Wordly_LEG_links_'+safe+'.xlsx'; }
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=fname; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
   }
 </script>

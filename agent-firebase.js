@@ -12,7 +12,14 @@
 // Results  : agents/{agentId}/lastResult -> {action, ok, note, ts}
 // ============================================================
 (function () {
-  const db = firebase.database();
+  // Use a SEPARATE Firebase app instance ('legAgent') so the agent's anonymous
+  // sign-in has its own isolated auth storage and NEVER overwrites the admin's
+  // Google session on the same origin (they'd otherwise share one login slot).
+  let legApp;
+  try { legApp = firebase.app('legAgent'); }
+  catch (e) { legApp = firebase.initializeApp(firebaseConfig, 'legAgent'); }
+  const db = legApp.database();
+  const authRef = legApp.auth();
 
   // ---- URL params: which event bucket, and optional preconfig ----
   // Ghost link:         ?event=EVENTID
@@ -26,9 +33,10 @@
     if (!sid && !pass && !nm) return;
     try {
       if (typeof cfg !== 'object' || !cfg) return;
-      if (sid)  cfg.sessionId = (typeof normSid === 'function' ? (normSid(sid) || sid) : sid);
-      if (pass) cfg.passcode  = pass;
-      if (nm)   cfg.presenter = nm;
+      const clean = v => String(v).replace(/^=+/, '').replace(/^"(.*)"$/, '$1').trim();
+      if (sid)  cfg.sessionId = (typeof normSid === 'function' ? (normSid(clean(sid)) || clean(sid)) : clean(sid));
+      if (pass) cfg.passcode  = clean(pass);
+      if (nm)   cfg.presenter = clean(nm);
       if (typeof saveCfg === 'function') saveCfg();
       if (typeof loadIdle === 'function') loadIdle();  // refresh idle card + Start-enabled state
       console.log('[LEG] preconfigured from link for event', eventId);
@@ -186,8 +194,8 @@
     console.log('[LEG] agent online as', agentId);
   }
 
-  firebase.auth().signInAnonymously()
-    .then(function () { firebase.auth().onAuthStateChanged(function (u) { if (u) begin(); }); })
+  authRef.signInAnonymously()
+    .then(function () { authRef.onAuthStateChanged(function (u) { if (u) begin(); }); })
     .catch(function (e) { console.error('[LEG] anonymous auth failed', e); });
 
   // Expose ids for debugging
