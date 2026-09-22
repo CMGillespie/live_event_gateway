@@ -93,7 +93,7 @@
   }
 
   // ---- Session start/stop timestamps (client clock, stamped once per transition) ----
-  let lastStatus = null, startedAt = null, endedAt = null;
+  let lastStatus = null, startedAt = null, endedAt = null, lastAudioAt = null;
 
   // ---- Push current state up to Firebase ----
   function pushPresence(extra) {
@@ -110,20 +110,80 @@
       deviceLabel: c.deviceLabel || '',
       status:      status,
       muted:       isMuted(),
+      privacy:     privacyMode,
       configReady: configReady(),
       online:      true,
       agentId:     agentId,
       eventId:     eventId,
       startedAt:   startedAt,
       endedAt:     endedAt,
+      lastAudioAt: lastAudioAt,
       userAgent:   navigator.userAgent,
       updatedAt:   firebase.database.ServerValue.TIMESTAMP
     }, extra || {});
     presenceRef.update(data).catch(function (e) { console.warn('[LEG] presence write failed', e); });
   }
 
+  // ---- LEG-only presenter UI, injected at runtime (keeps index.html a pure mirror of base) ----
+  let privacyMode = false;
+  try { privacyMode = localStorage.getItem('leg_privacy') === '1'; } catch (e) {}
+
+  function setPrivacy(on) {
+    privacyMode = on;
+    try { localStorage.setItem('leg_privacy', on ? '1' : '0'); } catch (e) {}
+    renderPrivacyUI();
+    pushPresence();
+  }
+  function renderPrivacyUI() {
+    const btn = document.getElementById('leg-privacy-btn');
+    if (btn) {
+      btn.textContent = privacyMode ? '🔒 PRIVACY MODE: ON — portal locked out' : '🔓 Privacy Mode: OFF';
+      btn.style.background = privacyMode ? '#5c1a1a' : '#162540';
+      btn.style.color = privacyMode ? '#ffbbbb' : '#88AACC';
+    }
+    document.querySelectorAll('.leg-privacy-banner').forEach(function (el) { el.hidden = !privacyMode; });
+  }
+  function injectCaptionPill() {
+    const host = document.querySelector('#screen-streaming .sinfo');
+    if (!host || document.getElementById('leg-cap-pill')) return;
+    const btn = document.createElement('button');
+    btn.id = 'leg-cap-pill';
+    btn.textContent = '⛶ Caption Screen';
+    btn.style.cssText = 'display:inline-block;align-self:flex-start;padding:6px 14px;margin-top:8px;font-size:11px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;background:#1B3A6B;color:#88AACC;border:1px solid #2A5298;border-radius:20px;cursor:pointer;';
+    btn.onclick = function () {
+      const sid = (getCfg().sessionId || '');
+      if (!sid) return;
+      window.open('https://cmgillespie.github.io/Wordly_iframe_landing/?session=' + encodeURIComponent(sid) + '&kiosk=1', '_blank');
+    };
+    host.appendChild(btn);
+  }
+  function injectPrivacyControl() {
+    const idleHost = document.querySelector('#screen-idle .idle-left');
+    if (idleHost && !document.getElementById('leg-privacy-btn')) {
+      const btn = document.createElement('button');
+      btn.id = 'leg-privacy-btn';
+      btn.style.cssText = 'display:block;width:100%;padding:12px;margin-top:8px;font-size:13px;font-weight:bold;border:none;border-radius:8px;cursor:pointer;';
+      btn.onclick = function () { setPrivacy(!privacyMode); };
+      idleHost.appendChild(btn);
+    }
+    const sinfo = document.querySelector('#screen-streaming .sinfo');
+    if (sinfo && !sinfo.querySelector('.leg-privacy-banner')) {
+      const ban = document.createElement('div');
+      ban.className = 'leg-privacy-banner';
+      ban.textContent = '🔒 PRIVACY MODE — portal control disabled';
+      ban.style.cssText = 'background:#5c1a1a;color:#ffbbbb;font-weight:bold;font-size:12px;text-align:center;padding:6px;border-radius:6px;margin-bottom:8px;';
+      ban.hidden = true;
+      sinfo.insertBefore(ban, sinfo.firstChild);
+    }
+    renderPrivacyUI();
+  }
+
   // ---- Execute a remote command against the appliance ----
   function dispatch(action) {
+    if (privacyMode) {
+      resultRef.set({ action: action, ok: false, note: 'ignored — room in privacy mode', ts: firebase.database.ServerValue.TIMESTAMP }).catch(function(){});
+      return;
+    }
     let ok = true, note = '';
     try {
       switch (action) {
@@ -167,6 +227,10 @@
 
   // ---- Wire everything once we have an auth session ----
   function begin() {
+    // Inject LEG-only presenter UI (caption pill + privacy control)
+    injectCaptionPill();
+    injectPrivacyControl();
+
     // Mark offline automatically if the tab dies / device drops
     presenceRef.child('online').onDisconnect().set(false);
     presenceRef.child('status').onDisconnect().set('offline');
@@ -182,6 +246,18 @@
       console.log('[LEG] command received:', c.action, c.id);
       dispatch(c.action);
     });
+
+    // Audio-activity watch: read the appliance's meter as a reliable "someone is speaking"
+    // signal (no appliance change). Feeds the monitor page's silence detection.
+    setInterval(function () {
+      try {
+        const fill = document.getElementById('meter-fill');
+        if (fill && isStreamingStatus(deriveStatus()) && !isMuted()) {
+          const w = parseFloat(fill.style.width) || 0;
+          if (w > 5) lastAudioAt = Date.now();
+        }
+      } catch (e) {}
+    }, 1000);
 
     // Heartbeat / status poller
     setInterval(pushPresence, 2000);

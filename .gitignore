@@ -11,6 +11,9 @@ firebase-adminsdk*.json
 _reference_mission_control/
 wordly-reaction-engine/
 
+# Hand-coded reference monitor (has hardcoded session IDs) — not part of LEG
+RT-monitor.html
+
 # OS / editor
 .DS_Store
 *.log

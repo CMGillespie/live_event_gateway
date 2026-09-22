@@ -67,11 +67,13 @@
 
     <!-- tabs -->
     <div class="flex gap-1 mb-4 border-b border-slate-200">
+      <button id="tabbtn-active"  onclick="showTab('active')"  class="px-4 py-2 font-bold text-sm border-b-2 border-transparent">Active Event</button>
       <button id="tabbtn-details" onclick="showTab('details')" class="px-4 py-2 font-bold text-sm border-b-2 border-transparent">Details</button>
-      <button id="tabbtn-rooms"   onclick="showTab('rooms')"   class="px-4 py-2 font-bold text-sm border-b-2 border-transparent">Rooms &amp; Control</button>
     </div>
 
-    <!-- ── DETAILS TAB (the event's portal) ── -->
+    <!-- ── ACTIVE EVENT TAB (live rooms + control) — moved below, opens first ── -->
+
+    <!-- ── DETAILS TAB (the event's portal + setup) ── -->
     <div id="tab-details" hidden class="max-w-4xl">
       <div class="grid gap-3 mb-3" style="grid-template-columns:1fr 1fr">
         <div><label class="text-xs font-black uppercase text-slate-500">Event name</label><input id="d-name" class="w-full px-3 py-2 border rounded-lg text-sm mt-1"></div>
@@ -106,10 +108,6 @@
         <button onclick="saveDetails()" class="bg-green-700 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-green-800">Save details</button>
         <span id="details-msg" class="text-sm"></span>
       </div>
-    </div>
-
-    <!-- ── ROOMS & CONTROL TAB ── -->
-    <div id="tab-rooms">
 
     <!-- link + share -->
     <div class="grid gap-3 mb-4" style="grid-template-columns:1fr 1fr">
@@ -144,6 +142,13 @@
       </div>
       <div id="csv-preview" class="overflow-x-auto mt-3"></div>
     </div>
+    </div><!-- /tab-details -->
+
+    <!-- ── ACTIVE EVENT TAB (live rooms + control) ── -->
+    <div id="tab-active">
+      <div class="flex items-center justify-end mb-3">
+        <button onclick="openMonitor()" class="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-600">🖥 Open live monitor ↗</button>
+      </div>
 
     <!-- room table controls -->
     <header class="mb-3 flex flex-wrap gap-3 items-center bg-slate-100 p-2 rounded-xl border border-slate-200">
@@ -187,7 +192,7 @@
       </table>
     </div>
     <div id="empty" class="text-center text-slate-400 italic font-bold uppercase tracking-widest py-16" hidden>No rooms checked into this event yet — open its room link on a device.</div>
-    </div><!-- /tab-rooms -->
+    </div><!-- /tab-active -->
   </div>
 </div>
 
@@ -206,6 +211,7 @@
   let userEventsRef = null;
   let currentEventId = null, currentEvent = null;
   let agentsRef = null;
+  let cardAgentRefs = {};   // per-event-card live agent listeners (My Events counters)
 
   let agentData = {}, prevStatus = {}, selected = {}, armMode = null, filter = null;
   let sortKey = null, sortDir = 1, prevFilter = null;
@@ -261,7 +267,10 @@
         <div class="font-black text-lg" data-f="name">${esc(name)}</div>
         <div class="text-xs text-slate-500 mt-1" data-f="meta"></div>
         <div class="text-xs text-slate-400 mt-1" data-f="contact"></div>
-        <div class="mt-2"><span class="text-xs font-bold uppercase px-2 py-0.5 rounded ${role==='owner'?'bg-blue-100 text-blue-700':'bg-slate-100 text-slate-500'}">${role}</span></div>
+        <div class="flex flex-wrap items-center gap-2 mt-2">
+          <span class="text-xs font-bold uppercase px-2 py-0.5 rounded ${role==='owner'?'bg-blue-100 text-blue-700':'bg-slate-100 text-slate-500'}">${role}</span>
+          <span data-f="counts" class="flex gap-1.5"></span>
+        </div>
       </div>`;
     }).join('');
     // enrich each card with dates / city / main contact
@@ -273,6 +282,26 @@
       const c = (e.contacts && e.contacts[0]) || null;
       card.querySelector('[data-f=contact]').textContent = c ? ('☎ ' + [c.name, c.email].filter(Boolean).join(' · ')) : '';
     }));
+    // Live active/inactive/alert counters per card (for running several events at once)
+    Object.keys(cardAgentRefs).forEach(k => cardAgentRefs[k].off());
+    cardAgentRefs = {};
+    ids.forEach(id => {
+      const ref = db.ref('events/'+id+'/agents');
+      cardAgentRefs[id] = ref;
+      ref.on('value', s => {
+        const agents = s.val() || {}, card = document.getElementById('ev-card-'+id); if (!card) return;
+        let active=0, inactive=0, alerts=0;
+        Object.keys(agents).forEach(k => {
+          const a = agents[k]||{}, st = a.online ? (a.status||'idle').toLowerCase() : 'offline';
+          if (['live','muted','connecting','reconnecting'].indexOf(st)!==-1) active++;
+          else if (st==='error' || st==='offline') alerts++;
+          else inactive++;
+        });
+        const el = card.querySelector('[data-f=counts]'); if (!el) return;
+        const pill = (n,cls,lbl)=>`<span class="text-xs font-bold px-2 py-0.5 rounded ${cls}">${lbl} ${n}</span>`;
+        el.innerHTML = pill(active,'bg-green-100 text-green-700','●') + pill(inactive,'bg-slate-100 text-slate-500','○') + (alerts>0?pill(alerts,'bg-red-100 text-red-700','⚠'):'');
+      });
+    });
   }
   function createNewEvent(){
     const nameEl = document.getElementById('new-event-name');
@@ -296,7 +325,7 @@
       document.getElementById('event-link').value = AGENT_BASE + '?event=' + encodeURIComponent(id);
       renderMembers();
       loadDetails();
-      showTab('rooms');
+      showTab('active');
       document.getElementById('events-view').hidden = true;
       document.getElementById('event-view').hidden = false;
       // watch this event's agents
@@ -356,12 +385,13 @@
 
   // ── Tabs ──
   function showTab(which){
+    document.getElementById('tab-active').hidden  = which !== 'active';
     document.getElementById('tab-details').hidden = which !== 'details';
-    document.getElementById('tab-rooms').hidden   = which !== 'rooms';
     const on='border-blue-600 text-blue-600', off='border-transparent text-slate-500';
+    document.getElementById('tabbtn-active').className  = 'px-4 py-2 font-bold text-sm border-b-2 ' + (which==='active'?on:off);
     document.getElementById('tabbtn-details').className = 'px-4 py-2 font-bold text-sm border-b-2 ' + (which==='details'?on:off);
-    document.getElementById('tabbtn-rooms').className   = 'px-4 py-2 font-bold text-sm border-b-2 ' + (which==='rooms'?on:off);
   }
+  function openMonitor(){ if(currentEventId) window.open(AGENT_BASE+'monitor.html?event='+encodeURIComponent(currentEventId),'_blank'); }
 
   // ── Details form ──
   function loadDetails(){
@@ -526,12 +556,13 @@
     const sid=a.sessionId||'', pass=a.passcode||'';
     const attend=sid?`https://attend.wordly.ai/enter/${encodeURIComponent(sid)}`:'';
     const present=sid?`https://join.wordly.ai/enter/${encodeURIComponent(sid)}${pass?`?key=${encodeURIComponent(pass)}`:''}`:'';
-    const canStart=a.online&&st==='idle'&&a.configReady, canMute=a.online&&st==='live', canUnmute=a.online&&st==='muted',
-          canSplit=a.online&&(st==='live'||st==='muted'), canLeave=a.online&&streaming, canEnd=a.online&&streaming;
+    const priv=!!a.privacy;  // room asserted listener-only — portal cannot control it
+    const canStart=!priv&&a.online&&st==='idle'&&a.configReady, canMute=!priv&&a.online&&st==='live', canUnmute=!priv&&a.online&&st==='muted',
+          canSplit=!priv&&a.online&&(st==='live'||st==='muted'), canLeave=!priv&&a.online&&streaming, canEnd=!priv&&a.online&&streaming;
     const b=(ok,cls,label,act)=>`<button ${ok?'':'disabled'} onclick="rowCmd('${id}','${act}')" class="px-2 py-1 rounded text-xs font-bold ${ok?cls:'bg-slate-100 text-slate-300 cursor-not-allowed'}">${label}</button>`;
     return `<tr class="${rowCls}">
       <td class="px-2 py-3">${showCb?`<input type="checkbox" ${checked} onchange="toggleSel('${id}',this)" class="w-4 h-4 cursor-pointer">`:''}</td>
-      <td class="px-3 py-3"><span class="px-2 py-0.5 rounded text-xs font-black uppercase ${badge(st)}">${st}</span></td>
+      <td class="px-3 py-3"><span class="px-2 py-0.5 rounded text-xs font-black uppercase ${badge(st)}">${st}</span>${priv?'<div class="text-[10px] mt-1 font-black text-purple-700 bg-purple-100 rounded px-1 inline-block">🔒 PRIVACY</div>':''}</td>
       <td class="px-3 py-3"><div class="font-bold text-base">${esc(a.label||'—')}</div><div class="text-[11px] text-slate-400 font-mono">${esc(id)}</div>${(!a.configReady&&a.online)?'<div class="text-[11px] text-amber-600 font-bold">⚠ not configured</div>':''}</td>
       <td class="px-3 py-3"><span class="font-mono font-bold text-blue-600 tracking-tight">${esc(sid||'—')}</span></td>
       <td class="px-3 py-3 text-slate-600">${esc(a.deviceLabel||'—')}</td>
@@ -630,6 +661,7 @@
     const keep=i=>drop.indexOf(i)===-1;
     const headers=h0.filter((_,i)=>keep(i)); headers.push('leg_link');
     const out=[headers];
+    const sessions=[];
     for(let r=1;r<rows.length;r++){
       const src=rows[r]||[];
       const sid=cleanCell(src[sIdx]); if(!sid){continue;}
@@ -639,12 +671,25 @@
       if(pass) link+='&passcode='+encodeURIComponent(pass);
       if(name) link+='&name='+encodeURIComponent(name);
       const row=src.filter((_,i)=>keep(i)); row.push(link); out.push(row);
+      sessions.push({ name:name||sid, sessionId:sid, passcode:pass, link });
     }
     mergedData=out; mergedHeaders=headers;
-    msg.textContent=(out.length-1)+' links generated.'; msg.className='text-xs text-green-600';
+    // Save the planned session list onto the event (feeds the live monitor)
+    if(currentEventId) db.ref('events/'+currentEventId+'/sessions').set(sessions).catch(()=>{});
+    msg.textContent=(out.length-1)+' links generated & saved to event.'; msg.className='text-xs text-green-600';
     document.getElementById('csv-download').hidden=false;
-    // preview
-    const prev=out.slice(0,6).map((r,i)=>`<tr class="${i===0?'bg-slate-900 text-slate-200 text-xs uppercase':''}">`+r.map(c=>`<td class="border px-2 py-1 text-xs ${i===0?'font-black':''}">${esc(c)}</td>`).join('')+`</tr>`).join('');
+    // Preview: key columns only, Attend/leg_link clickable. (Downloaded file keeps ALL columns.)
+    const KEEP=/(title|presenter|label|session|passcode|attend|leg_link)/i;
+    const showIdx=headers.map((_,i)=>i).filter(i=>KEEP.test(String(headers[i])));
+    const isLink=i=>/attend|leg_link/i.test(String(headers[i]));
+    const prev=out.slice(0,6).map((r,ri)=>{
+      const cells=showIdx.map(i=>{
+        const v=r[i]==null?'':r[i];
+        if(ri>0 && isLink(i) && /^https?:/i.test(String(v))) return `<td class="border px-2 py-1 text-xs"><a href="${esc(v)}" target="_blank" class="text-blue-600 hover:underline break-all">${esc(v)}</a></td>`;
+        return `<td class="border px-2 py-1 text-xs ${ri===0?'font-black':''}">${esc(v)}</td>`;
+      }).join('');
+      return `<tr class="${ri===0?'bg-slate-900 text-slate-200 text-xs uppercase':''}">${cells}</tr>`;
+    }).join('');
     document.getElementById('csv-preview').innerHTML=`<table class="border-collapse w-full">${prev}</table>`+(out.length>6?`<div class="text-xs text-slate-400 italic mt-1">…and ${out.length-6} more rows in the download</div>`:'');
   }
   function downloadMerged(){

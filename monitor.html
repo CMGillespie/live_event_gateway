@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LEG Monitor</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖥️</text></svg>">
+<!--
+  Wordly Live Event Gateway — Live Monitor
+  v0.1 — auto-built caption wall for one event. Grid = checked-in rooms; bottom = attention list
+  (not checked in / disconnected). Per-cell silence detection via agent-reported audio activity,
+  with auto-refresh of stale caption frames. UX polish pending (Graham).
+-->
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  [hidden]{display:none!important}
+  .cellframe{width:100%;height:220px;border:none;background:#000;display:block}
+  .pulse{animation:pulse 1.4s ease-in-out infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+</style>
+</head>
+<body class="bg-slate-950 text-white p-3 min-h-screen">
+
+<div id="signin" class="fixed inset-0 bg-slate-950 z-50 flex flex-col items-center justify-center gap-4 text-center p-8">
+  <div class="text-2xl font-black">Wordly <span class="text-blue-400">Live Event Gateway</span> — Monitor</div>
+  <p class="text-slate-400 max-w-sm">Sign in with your Wordly Google account to view this event's rooms.</p>
+  <button onclick="doSignIn()" class="bg-white text-slate-900 rounded-lg px-6 py-3 font-bold">Sign in with Google</button>
+  <div id="signin-err" class="text-red-400 text-sm"></div>
+</div>
+
+<div id="app" hidden>
+  <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+    <div class="flex items-baseline gap-3">
+      <span class="text-xl font-black">Wordly <span class="text-blue-400">LEG</span> Monitor</span>
+      <span id="event-name" class="text-slate-300 font-bold"></span>
+      <span class="flex items-center gap-1.5 text-xs font-bold text-green-400"><span class="w-2 h-2 rounded-full bg-green-500 pulse"></span>LIVE</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <input id="search" placeholder="Filter…" class="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-sm outline-none">
+      <label class="text-xs text-slate-400 flex items-center gap-1">silence
+        <select id="thresh" class="bg-slate-800 border border-slate-700 rounded px-1 py-1 text-xs">
+          <option value="120000">2 min</option><option value="300000" selected>5 min</option><option value="600000">10 min</option>
+        </select>
+      </label>
+      <button onclick="refreshAll()" class="bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-slate-700">↻ Refresh all</button>
+    </div>
+  </div>
+
+  <div class="text-xs font-black uppercase tracking-widest text-slate-500 mb-2">Live rooms · <span id="live-count">0</span></div>
+  <div id="grid" class="grid gap-3" style="grid-template-columns:repeat(auto-fill,minmax(320px,1fr))"></div>
+  <div id="grid-empty" class="text-slate-500 italic py-8" hidden>No rooms checked in yet.</div>
+
+  <div class="mt-6 border-t border-slate-800 pt-4">
+    <div class="text-xs font-black uppercase tracking-widest text-amber-400 mb-2">⚠ Needs attention — not checked in / disconnected · <span id="attn-count">0</span></div>
+    <div id="attention" class="flex flex-wrap gap-2"></div>
+    <div id="attn-empty" class="text-slate-500 italic text-sm" hidden>Everything is checked in. 🎉</div>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+  const db = firebase.database(), auth = firebase.auth();
+  const eventId = (new URLSearchParams(location.search).get('event') || '').trim();
+  let agents = {}, sessions = [], lastReload = {};
+  const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const STREAMING = ['live','muted','connecting','reconnecting'];
+  const isStreaming = s => STREAMING.indexOf((s||'').toLowerCase())!==-1;
+  const statusOf = a => a.online ? (a.status||'idle').toLowerCase() : 'offline';
+  const thresh = () => Number(document.getElementById('thresh').value) || 300000;
+
+  function doSignIn(){ auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e=>document.getElementById('signin-err').textContent=e.message); }
+  auth.onAuthStateChanged(u=>{
+    if(u){ document.getElementById('signin').hidden=true; document.getElementById('app').hidden=false; start(); }
+    else { document.getElementById('app').hidden=true; document.getElementById('signin').hidden=false; }
+  });
+
+  function start(){
+    if(!eventId){ document.getElementById('event-name').textContent='(no event specified)'; return; }
+    db.ref('events/'+eventId+'/name').once('value').then(s=>{ document.getElementById('event-name').textContent=s.val()||eventId; })
+      .catch(()=>{ document.getElementById('event-name').textContent='(no access to this event)'; });
+    db.ref('events/'+eventId+'/agents').on('value', s=>{ agents=s.val()||{}; render(); });
+    db.ref('events/'+eventId+'/sessions').on('value', s=>{ sessions=s.val()||[]; render(); });
+  }
+
+  function frameUrl(a, bust){
+    const sid=a.sessionId||''; if(!sid) return '';
+    let u='https://attend.wordly.ai/frame/'+encodeURIComponent(sid)+'?bgcolor=0D1B2E&fgcolor=ffffff';
+    if(a.passcode) u+='&key='+encodeURIComponent(a.passcode);
+    if(bust) u+='&_r='+bust;
+    return u;
+  }
+
+  function render(){
+    const q=document.getElementById('search').value.toLowerCase();
+    const ids=Object.keys(agents);
+    // live = checked-in (online) rooms
+    const live=ids.filter(id=>agents[id].online).map(id=>Object.assign({id},agents[id]))
+      .filter(a=>[(a.label||''),(a.sessionId||'')].join(' ').toLowerCase().includes(q))
+      .sort((a,b)=>String(a.label||'').localeCompare(String(b.label||'')));
+    document.getElementById('live-count').textContent=live.length;
+    document.getElementById('grid-empty').hidden=live.length!==0;
+
+    const grid=document.getElementById('grid');
+    // add/update cells without nuking iframes (so they don't reload on every data tick)
+    const seen={};
+    live.forEach(a=>{
+      seen[a.id]=1;
+      let cell=document.getElementById('cell-'+a.id);
+      if(!cell){
+        cell=document.createElement('div');
+        cell.id='cell-'+a.id;
+        cell.className='rounded-xl overflow-hidden border border-slate-800 bg-slate-900';
+        cell.innerHTML=`<div class="flex items-center justify-between px-3 py-2">
+            <div class="font-bold text-sm truncate" data-f="name"></div>
+            <div class="text-xs" data-f="badge"></div>
+          </div>
+          <div data-f="framewrap"></div>`;
+        grid.appendChild(cell);
+        const sid=a.sessionId||'';
+        cell.querySelector('[data-f=framewrap]').innerHTML = sid
+          ? `<iframe class="cellframe" id="if-${a.id}" src="${frameUrl(a)}" allow="autoplay"></iframe>`
+          : `<div class="cellframe flex items-center justify-center text-slate-500 text-sm">waiting for session config…</div>`;
+      }
+      cell.querySelector('[data-f=name]').textContent = a.label || a.id;
+    });
+    // remove cells for rooms no longer live
+    Array.from(grid.children).forEach(c=>{ const id=c.id.replace('cell-',''); if(!seen[id]){ c.remove(); delete lastReload[id]; } });
+
+    renderAttention(ids);
+  }
+
+  function renderAttention(ids){
+    const onlineSids={};
+    ids.forEach(id=>{ if(agents[id].online && agents[id].sessionId) onlineSids[agents[id].sessionId]=1; });
+    const chips=[];
+    // planned sessions with no live agent
+    (sessions||[]).forEach(s=>{ if(s && s.sessionId && !onlineSids[s.sessionId]) chips.push(`<span class="px-2 py-1 rounded bg-slate-800 border border-slate-700 text-xs"><b>${esc(s.name||s.sessionId)}</b> <span class="text-slate-400 font-mono">${esc(s.sessionId)}</span> · <span class="text-amber-400">not checked in</span></span>`); });
+    // agents that are offline/error
+    ids.forEach(id=>{ const a=agents[id], st=statusOf(a); if(st==='offline'||st==='error') chips.push(`<span class="px-2 py-1 rounded bg-red-950 border border-red-800 text-xs"><b>${esc(a.label||id)}</b> · <span class="text-red-400">${st}</span></span>`); });
+    document.getElementById('attention').innerHTML=chips.join('');
+    document.getElementById('attn-count').textContent=chips.length;
+    document.getElementById('attn-empty').hidden=chips.length!==0;
+  }
+
+  // Silence tick: badge + auto-refresh stale frames (agent-reported audio activity)
+  setInterval(()=>{
+    const T=thresh();
+    Object.keys(agents).forEach(id=>{
+      const a=agents[id]; if(!a.online) return;
+      const cell=document.getElementById('cell-'+id); if(!cell) return;
+      const badge=cell.querySelector('[data-f=badge]'); if(!badge) return;
+      if(!isStreaming(statusOf(a))){ badge.innerHTML=`<span class="text-slate-400">${esc(statusOf(a))}</span>`; return; }
+      const since=a.lastAudioAt || a.startedAt || Date.now();
+      const silentMs=Date.now()-since;
+      if(silentMs>=T){
+        const m=Math.floor(silentMs/60000);
+        badge.innerHTML=`<span class="text-red-400 font-bold">🔇 silent ${m}m</span>`;
+        // refresh the frame once per threshold window while silent
+        if(!lastReload[id] || Date.now()-lastReload[id]>=T){
+          const ifr=document.getElementById('if-'+id);
+          if(ifr){ ifr.src=frameUrl(a, Date.now()); lastReload[id]=Date.now(); }
+        }
+      } else {
+        badge.innerHTML=`<span class="text-green-400">● live</span>`;
+      }
+    });
+  }, 3000);
+
+  function refreshAll(){ Object.keys(agents).forEach(id=>{ const a=agents[id]; const ifr=document.getElementById('if-'+id); if(ifr){ ifr.src=frameUrl(a, Date.now()); lastReload[id]=Date.now(); } }); }
+  document.getElementById('search').addEventListener('input', render);
+</script>
+</body>
+</html>
