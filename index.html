@@ -18,15 +18,6 @@ html, body {
 .screen.active { display: flex; }
 
 /* ── PORTRAIT MODE ── */
-body.portrait {
-  transform: rotate(90deg);
-  transform-origin: center center;
-  width: 100vh;
-  height: 100vw;
-  position: fixed;
-  top: calc((100vh - 100vw) / 2);
-  left: calc((100vw - 100vh) / 2);
-}
 
 /* ── PANEL ── */
 #panel { position: fixed; inset: 0; background: #0D1B2E; z-index: 100; display: none; flex-direction: column; }
@@ -110,6 +101,30 @@ input:checked + .tog-slide:before { transform: translateX(20px); }
 .ls-btn.active { background: #2A6DB5; color: #FFF; border-color: #5AA0E9; box-shadow: 0 0 0 2px #5AA0E9; }
 .ls-btn:active { opacity: 0.8; }
 
+
+/* Schedule pill */
+.sched-pill {
+  font-size: 11px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase;
+  background: #1B3A6B; color: #88AACC;
+  border: 1px solid #2A5298; border-radius: 20px;
+  padding: 5px 14px; margin-bottom: 8px;
+  display: none;
+}
+.sched-pill.active { display: inline-block; }
+.sched-pill.warn   { display: inline-block; background: #7A5000; color: #FFB300; border-color: #FFB300; }
+.sched-pill.urgent { display: inline-block; background: #7A5000; color: #FFB300; border-color: #FFB300;
+  animation: pulse-amber 0.6s ease-in-out infinite alternate; }
+@keyframes pulse-amber { from { opacity:1; } to { opacity:0.4; } }
+/* Caption launch pill */
+.cap-pill {
+  display: inline-block; padding: 5px 14px;
+  font-size: 11px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase;
+  background: #1B3A6B; color: #88AACC;
+  border: 1px solid #2A5298; border-radius: 20px;
+  cursor: pointer; margin-bottom: 8px; transition: background 0.15s;
+}
+.cap-pill.fired { background: #2A6DB5; color: #FFF; }
+
 /* Meter */
 .meter-wrap  { margin-top: auto; padding-top: 8px; }
 .meter-label { font-size: 11px; color: #7AAACC; margin-bottom: 4px; letter-spacing: 1px; font-weight: bold; }
@@ -184,22 +199,12 @@ body.portrait .ls-grid        { grid-template-columns: repeat(4, 1fr); gap: 4px;
 body.portrait .ls-btn         { padding: 8px 4px; font-size: 12px; min-height: 36px; }
 body.portrait .meter-wrap     { margin-top: 6px; }
 body.portrait .sactions       { flex: 1; }
-body.portrait #btn-mute       { font-size: 40px; }
-body.portrait .iframe-wrap    { height: 100px; }
+body.portrait #btn-mute       { font-size: 48px; }
+body.portrait .iframe-wrap    { height: 300px; }
 body.portrait .sbot           { height: 60px; }
 body.portrait #btn-split, body.portrait #btn-leave, body.portrait #btn-end { font-size: 16px; }
 
-/* Portrait orientation transform — rotate entire page */
-body.portrait {
-  transform: rotate(90deg);
-  transform-origin: center center;
-  width: 100vh;
-  height: 100vw;
-  position: fixed;
-  top: calc((100vh - 100vw) / 2);
-  left: calc((100vw - 100vh) / 2);
-  overflow: hidden;
-}
+
 </style>
 </head>
 <body>
@@ -244,6 +249,8 @@ body.portrait {
     </div>
     <div class="ls-label">QUICK SWITCH</div>
     <div class="ls-grid" id="ls-grid"></div>
+    <div style="display:inline-flex;align-items:center;gap:6px"><div class="sched-pill" id="sched-pill"></div><button id="sched-cancel" onclick="cancelSchedule()" style="display:none;background:none;border:none;color:#FFB300;font-size:14px;cursor:pointer;padding:0">✕</button></div>
+    <button class="cap-pill" id="cap-pill" onclick="launchCaptions()">⛶ Caption Screen</button>
     <div class="meter-wrap">
       <div class="meter-label">AUDIO LEVEL</div>
       <div class="meter-track"><div class="meter-fill" id="meter-fill"></div></div>
@@ -431,6 +438,9 @@ function toggleOrientation() {
 function openPanel(w) { document.getElementById('panel').classList.add('open'); w==='network' ? buildNetPanel() : buildWordlyPanel(); }
 function closePanel() { document.getElementById('panel').classList.remove('open'); loadIdle(); }
 
+function isLegBuild() {
+  return typeof firebase !== 'undefined';
+}
 function buildNetPanel() {
   document.getElementById('panel-title').textContent = '🌐 Network';
   const ok = navigator.onLine;
@@ -446,6 +456,14 @@ function buildNetPanel() {
       <button class="btn-test" onclick="testNet()">Test Connection</button>
     </div>`;
   const isPortrait = document.body.classList.contains('portrait');
+  const isLocked = !!cfg.cloudLockout;
+  const lockoutHtml = isLegBuild() ? `
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
+      <span style="font-size:13px;color:#5A8AAA;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px">CLOUD CONTROL</span>
+      <button onclick="toggleCloudLockout()" style="padding:8px 18px;background:${isLocked?'#B5352A':'#1B3A6B'};color:#FFF;border:none;border-radius:20px;font-size:14px;font-weight:bold;cursor:pointer">
+        ${isLocked ? '🔒 Locked (tap to allow cloud control)' : '🔓 Unlocked (tap to lock out cloud control)'}
+      </button>
+    </div>` : '';
   document.getElementById('panel-foot').innerHTML = `
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
       <span style="font-size:13px;color:#5A8AAA;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px">ORIENTATION</span>
@@ -453,7 +471,13 @@ function buildNetPanel() {
         ${isPortrait ? '⬛ Portrait (tap for Landscape)' : '▬ Landscape (tap for Portrait)'}
       </button>
     </div>
+    ${lockoutHtml}
     <button class="btn-save" onclick="saveNet()">✓ Save & Close</button>`;
+}
+function toggleCloudLockout() {
+  cfg.cloudLockout = !cfg.cloudLockout;
+  saveCfg();
+  buildNetPanel();
 }
 async function testNet() {
   const el=document.getElementById('test-msg'); el.textContent='Testing...'; el.className='msg';
@@ -473,6 +497,25 @@ async function buildWordlyPanel() {
     devOpts=devs.map(d=>`<option value="${d.deviceId}" ${d.deviceId===cfg.deviceId?'selected':''}>${d.label||'Mic '+d.deviceId.slice(0,6)}</option>`).join('');
   } catch(e) {}
 
+  const schedHtml = isLegBuild() ? '' : `
+    <span class="fl" style="margin-top:16px">Schedule (optional — 24hr window)</span>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="checkbox" id="s-start-en">
+        <label style="color:#7AAACC;font-size:12px;width:40px">START</label>
+        <input type="time" id="s-start-t" style="background:#060E1A;color:#CDE;border:1px solid #1B3A6B;border-radius:6px;padding:4px 8px;font-size:14px">
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="checkbox" id="s-split-en">
+        <label style="color:#7AAACC;font-size:12px;width:40px">SPLIT</label>
+        <input type="time" id="s-split-t" style="background:#060E1A;color:#CDE;border:1px solid #1B3A6B;border-radius:6px;padding:4px 8px;font-size:14px">
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="checkbox" id="s-end-en">
+        <label style="color:#7AAACC;font-size:12px;width:40px">END</label>
+        <input type="time" id="s-end-t" style="background:#060E1A;color:#CDE;border:1px solid #1B3A6B;border-radius:6px;padding:4px 8px;font-size:14px">
+      </div>
+    </div>`;
   document.getElementById('panel-body').innerHTML = `
     <span class="fl">Session ID or Join Link</span>
     <input type="text" id="w-link" value="${cfg.sessionId||''}" placeholder="Paste join link or ABCD-1234">
@@ -489,7 +532,8 @@ async function buildWordlyPanel() {
     <span class="fl">Audio Input Device</span>
     <select id="w-dev">${devOpts}</select>
     <div class="msg" id="w-msg" style="margin-top:12px"></div>
-    <button class="btn-test" onclick="testAudio()">Test Audio (2s)</button>`;
+    <button class="btn-test" onclick="testAudio()">Test Audio (2s)</button>
+    ${schedHtml}`;
   document.getElementById('panel-foot').innerHTML = `<button class="btn-save" onclick="saveWordly()">✓ Save & Close</button>`;
 
   document.getElementById('w-link').addEventListener('input', e => {
@@ -526,6 +570,81 @@ async function testAudio() {
     document.getElementById('w-dev').innerHTML=devs.map(d=>`<option value="${d.deviceId}" ${d.deviceId===cfg.deviceId?'selected':''}>${d.label||'Mic '+d.deviceId.slice(0,6)}</option>`).join('');
   } catch(e){msg.textContent='✗ '+e.message;msg.className='msg err';}
 }
+
+// ═══════════════════════════════════════
+// LOCAL SCHEDULER
+// ═══════════════════════════════════════
+const schedTimers = { start: null, split: null, end: null };
+let schedPillInterval = null;
+
+function msUntil(hhmm) {
+  if (!hhmm) return null;
+  const [h, m] = hhmm.split(':').map(Number);
+  const now = new Date();
+  const target = new Date(now);
+  target.setHours(h, m, 0, 0);
+  if (target <= now) target.setDate(target.getDate() + 1);
+  return target - now;
+}
+
+function clearSchedule() {
+  Object.keys(schedTimers).forEach(k => {
+    if (schedTimers[k]) { clearTimeout(schedTimers[k]); schedTimers[k] = null; }
+  });
+  if (schedPillInterval) { clearInterval(schedPillInterval); schedPillInterval = null; }
+  updateSchedPill();
+}
+
+function armSchedule() {
+  clearSchedule();
+  if (cfg.schedStart) schedTimers.start = setTimeout(() => {
+    if (!document.getElementById('btn-start')?.classList.contains('disabled')) startSession();
+    cfg.schedStart=''; saveCfg(); updateSchedPill();
+  }, msUntil(cfg.schedStart));
+  if (cfg.schedSplit) schedTimers.split = setTimeout(() => {
+    if (ws && ws.readyState === WebSocket.OPEN) doSplit();
+    cfg.schedSplit=''; saveCfg(); updateSchedPill();
+  }, msUntil(cfg.schedSplit));
+  if (cfg.schedEnd) schedTimers.end = setTimeout(() => {
+    if (ws && ws.readyState === WebSocket.OPEN) { stopAudio(); stopTimer(); wssStop('user'); wssDisconnect(true); showScreen('idle'); }
+    cfg.schedEnd=''; saveCfg(); updateSchedPill();
+  }, msUntil(cfg.schedEnd));
+  if (cfg.schedStart || cfg.schedSplit || cfg.schedEnd) {
+    schedPillInterval = setInterval(updateSchedPill, 1000);
+    updateSchedPill();
+  }
+}
+
+function nextSchedEntry() {
+  const entries = [
+    { label: 'START', time: cfg.schedStart },
+    { label: 'SPLIT', time: cfg.schedSplit },
+    { label: 'END',   time: cfg.schedEnd   },
+  ].filter(e => e.time).map(e => ({ ...e, ms: msUntil(e.time) }));
+  if (!entries.length) return null;
+  return entries.sort((a,b) => a.ms - b.ms)[0];
+}
+
+function cancelSchedule() {
+  cfg.schedStart=''; cfg.schedSplit=''; cfg.schedEnd='';
+  saveCfg(); clearSchedule();
+}
+
+function updateSchedPill() {
+  const pill = document.getElementById('sched-pill');
+  if (!pill) return;
+  const next = nextSchedEntry();
+  const cancelBtn = document.getElementById('sched-cancel');
+  if (!next) { pill.className = 'sched-pill'; pill.textContent = ''; if(cancelBtn) cancelBtn.style.display='none'; return; }
+  if(cancelBtn) cancelBtn.style.display='inline';
+  const totalSec = Math.round(next.ms / 1000);
+  const m = Math.floor(totalSec / 60), s = totalSec % 60;
+  pill.textContent = `${next.label} in ${m}:${String(s).padStart(2,'0')}`;
+  if (totalSec <= 30)       pill.className = 'sched-pill urgent';
+  else if (totalSec <= 120) pill.className = 'sched-pill warn';
+  else                      pill.className = 'sched-pill active';
+}
+
 function saveWordly() {
   const linkVal=document.getElementById('w-link').value.trim();
   const {sid:parsedSid,pass:parsedPass}=parseLink(linkVal);
@@ -538,12 +657,26 @@ function saveWordly() {
   cfg.presenter=document.getElementById('w-pres').value.trim();
   cfg.deviceId=sel.value;
   cfg.deviceLabel=sel.options[sel.selectedIndex]?.text||'';
+  cfg.schedStart = document.getElementById('s-start-en')?.checked ? document.getElementById('s-start-t').value : '';
+  cfg.schedSplit = document.getElementById('s-split-en')?.checked ? document.getElementById('s-split-t').value : '';
+  cfg.schedEnd   = document.getElementById('s-end-en')?.checked   ? document.getElementById('s-end-t').value   : '';
   saveCfg(); closePanel();
+  armSchedule();
 }
 
 // ═══════════════════════════════════════
 // LANGUAGE GRID
 // ═══════════════════════════════════════
+function launchCaptions() {
+  const sid = cfg.sessionId || '';
+  if (!sid) return;
+  const url = `https://cmgillespie.github.io/Wordly_iframe_landing/?session=${sid}&kiosk=1&fgsize=60px&language=${currentLang}`;
+  window.open(url, '_blank', 'width=1920,height=1080');
+  const btn = document.getElementById('cap-pill');
+  btn.classList.add('fired');
+  setTimeout(() => btn.classList.remove('fired'), 1000);
+}
+
 function buildLangGrid() {
   const grid=document.getElementById('ls-grid'); if(!grid) return;
   const langs=sessionLangs.slice(0,8);
@@ -686,19 +819,19 @@ function startWSS() {
         }
         sessionLangs=d.languageCodes||[];
         alsEnabled=(d.dynamicLanguageSelection?.enabled!==false);
-        currentLang='en';
+        currentLang='';
         document.getElementById('als-tog').checked=alsEnabled;
         buildLangGrid();
-        // Load iframe 1s after connect to avoid blocking audio
-        const iUrl=`https://attend.wordly.ai/frame/${cfg.sessionId}?bgcolor=0D0C0C&fgcolor=ffffff${cfg.passcode?'&key='+encodeURIComponent(cfg.passcode):''}`;
-        setTimeout(()=>{document.getElementById('s-iframe').src=iUrl;},1000);
-        ws.send(JSON.stringify({type:'start',languageCode:'en',sampleRate:TARGET_SAMPLE_RATE,dynamicLanguageSelection:{enabled:alsEnabled}}));
+        ws.send(JSON.stringify({type:'start',languageCode:currentLang||'en',sampleRate:TARGET_SAMPLE_RATE,dynamicLanguageSelection:{enabled:alsEnabled}}));
       } else if(d.type==='status'&&d.action==='start'){
         if(d.success){
           connected=true;
+          if(d.languageCode) { currentLang=d.languageCode; buildLangGrid(); }
           document.getElementById('si-status').textContent='● LIVE';
           if(!timerStart) startTimer();
           echoTimer=setInterval(()=>{if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'echo'}));},ECHO_MS);
+          const iUrl=`https://attend.wordly.ai/frame/${cfg.sessionId}?fgsize=30px&showScrollbar=false&language=${currentLang}${cfg.passcode?'&key='+encodeURIComponent(cfg.passcode):''}`;
+          setTimeout(()=>{document.getElementById('s-iframe').src=iUrl;},1000);
         }
       } else if(d.type==='status'){
         if(d.languageCode&&alsEnabled){currentLang=d.languageCode;buildLangGrid();}
@@ -852,8 +985,10 @@ function returnToIdle(){cancelCd();// stopReason reset on returnToIdle
 // INIT
 // ═══════════════════════════════════════
 // Apply saved orientation on load
-if (localStorage.getItem('wordly_portrait') === '1') {
+const _savedPortrait = localStorage.getItem('wordly_portrait');
+if (_savedPortrait === '1' || (_savedPortrait === null && window.innerHeight > window.innerWidth)) {
   document.body.classList.add('portrait');
+  if (_savedPortrait === null) localStorage.setItem('wordly_portrait', '1');
 }
 loadIdle();
 window.addEventListener('online',loadIdle);

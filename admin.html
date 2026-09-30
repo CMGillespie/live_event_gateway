@@ -104,6 +104,16 @@
         <div id="docfiles-list" class="mt-2 flex flex-col gap-1"></div>
       </div>
 
+      <div class="mb-3">
+        <label class="text-xs font-black uppercase text-slate-500">Alerting (on unexpected room drops)</label>
+        <div class="grid gap-2 mt-1">
+          <input id="d-slack" placeholder="Slack incoming webhook URL" class="w-full px-3 py-2 border rounded-lg text-sm">
+          <input id="d-emails" placeholder="Alert emails (comma-separated) — pending backend" class="w-full px-3 py-2 border rounded-lg text-sm">
+          <input id="d-sms" placeholder="Alert SMS number — pending Twilio backend" class="w-full px-3 py-2 border rounded-lg text-sm">
+        </div>
+        <div class="text-xs text-slate-400 mt-1">Slack fires from an open admin/monitor tab now. Email/SMS and always-on alerting arrive with the Cloud Function.</div>
+      </div>
+
       <div class="flex items-center gap-3 pt-2 border-t">
         <button onclick="saveDetails()" class="bg-green-700 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-green-800">Save details</button>
         <span id="details-msg" class="text-sm"></span>
@@ -128,6 +138,22 @@
         </div>
         <div id="share-msg" class="text-xs min-h-[16px] mb-1"></div>
         <div id="members-list" class="flex flex-wrap gap-1.5"></div>
+      </div>
+    </div>
+
+    <!-- manual single-link builder -->
+    <div class="bg-slate-100 border rounded-xl p-3 mb-4">
+      <div class="text-xs font-black uppercase text-slate-500 mb-1">Build a single preconfigured room link</div>
+      <div class="text-xs text-slate-500 mb-2">Enter session details to generate one full link — no spreadsheet needed.</div>
+      <div class="grid gap-2 mb-2" style="grid-template-columns:1fr 1fr 1fr">
+        <input id="ml-session" placeholder="Session ID (ABCD-1234)" class="px-3 py-2 border rounded-lg text-sm">
+        <input id="ml-pass" placeholder="Passcode" class="px-3 py-2 border rounded-lg text-sm">
+        <input id="ml-name" placeholder="Room / speaker name" class="px-3 py-2 border rounded-lg text-sm">
+      </div>
+      <div class="flex gap-2">
+        <button onclick="buildManualLink()" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 whitespace-nowrap">Generate</button>
+        <input id="ml-out" readonly placeholder="generated link appears here" class="flex-1 px-3 py-2 border rounded-lg font-mono text-xs bg-white">
+        <button onclick="copyManualLink()" class="bg-slate-900 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-blue-600">Copy</button>
       </div>
     </div>
 
@@ -346,6 +372,20 @@
     navigator.clipboard.writeText(v).then(()=>flash(document.getElementById('event-link')));
   }
   function flash(el){ el.classList.add('ring-2','ring-green-500'); setTimeout(()=>el.classList.remove('ring-2','ring-green-500'),700); }
+  function buildManualLink(){
+    const sid=cleanCell(document.getElementById('ml-session').value); if(!sid){ document.getElementById('ml-session').focus(); return; }
+    const pass=cleanCell(document.getElementById('ml-pass').value), name=document.getElementById('ml-name').value.trim();
+    let link=AGENT_BASE+'?event='+encodeURIComponent(currentEventId)+'&session='+encodeURIComponent(sid);
+    if(pass) link+='&passcode='+encodeURIComponent(pass);
+    if(name) link+='&name='+encodeURIComponent(name);
+    document.getElementById('ml-out').value=link;
+  }
+  function copyManualLink(){ const v=document.getElementById('ml-out').value; if(!v) return; navigator.clipboard.writeText(v).then(()=>flash(document.getElementById('ml-out'))); }
+  // Slack incoming webhook — fire-and-forget from the browser (no-cors; only while a tab is open)
+  function sendSlack(text){
+    const url=currentEvent && currentEvent.alertSlack; if(!url) return;
+    try { fetch(url,{method:'POST',mode:'no-cors',body:JSON.stringify({text:text})}); } catch(e){}
+  }
 
   // ── Sharing (invite existing users by email) ──
   function renderMembers(){
@@ -400,6 +440,7 @@
     set('d-name', e.name); set('d-org', e.organization); set('d-title', e.title); set('d-city', e.city);
     set('d-start', e.startDate); set('d-end', e.endDate);
     set('d-facilities', (e.facilities||[]).join('\n')); set('d-rooms', (e.rooms||[]).join('\n'));
+    set('d-slack', e.alertSlack); set('d-emails', e.alertEmails); set('d-sms', e.alertSms);
     document.getElementById('contacts-rows').innerHTML='';
     (e.contacts||[]).forEach(addContactRow); if(!(e.contacts||[]).length) addContactRow();
     document.getElementById('doclink-rows').innerHTML='';
@@ -449,7 +490,10 @@
       facilities:document.getElementById('d-facilities').value.split('\n').map(s=>s.trim()).filter(Boolean),
       rooms:document.getElementById('d-rooms').value.split('\n').map(s=>s.trim()).filter(Boolean),
       contacts:gatherContacts(),
-      docLinks:gatherDocLinks()
+      docLinks:gatherDocLinks(),
+      alertSlack:document.getElementById('d-slack').value.trim(),
+      alertEmails:document.getElementById('d-emails').value.trim(),
+      alertSms:document.getElementById('d-sms').value.trim()
     };
     const msg=document.getElementById('details-msg'); msg.textContent='Saving…'; msg.className='text-sm text-slate-500';
     db.ref('events/'+currentEventId).update(patch).then(()=>{
@@ -620,7 +664,7 @@
     if(armMode){ document.getElementById('bulk-'+armMode).textContent=`${({start:'▶ Start',mute:'⏸ Mute',split:'✂ Split',end:'■ End'})[armMode]} (${count})`; }
     else { document.getElementById('bulk-start').textContent='▶ Start'; document.getElementById('bulk-mute').textContent='⏸ Mute'; document.getElementById('bulk-split').textContent='✂ Split'; document.getElementById('bulk-end').textContent='■ End'; }
   }
-  function triggerDrop(id,a){ dropAlerts.push({id,name:a.label||id,at:new Date()}); renderDropBanner(); beep(); if(window.Notification&&Notification.permission==='granted'){try{new Notification('Room dropped',{body:`${a.label||id} is no longer live.`});}catch(e){}} }
+  function triggerDrop(id,a){ dropAlerts.push({id,name:a.label||id,at:new Date()}); renderDropBanner(); beep(); if(window.Notification&&Notification.permission==='granted'){try{new Notification('Room dropped',{body:`${a.label||id} is no longer live.`});}catch(e){}} sendSlack('⚠ '+((currentEvent&&currentEvent.name)?currentEvent.name+': ':'')+(a.label||id)+' dropped ('+(a.status||'offline')+').'); }
   function renderDropBanner(){ const el=document.getElementById('dropBanner'); if(!dropAlerts.length){el.hidden=true;el.innerHTML='';return;} el.hidden=false; el.innerHTML=dropAlerts.map((d,i)=>`<div class="flex items-center justify-between"><span class="font-black text-sm">⚠ DROPPED: ${esc(d.name)} — ${d.at.toLocaleTimeString()}</span><button onclick="ackDrop(${i})" class="bg-white/20 hover:bg-white/30 px-2 py-1 rounded text-xs font-bold uppercase">Acknowledge</button></div>`).join(''); }
   function ackDrop(i){ dropAlerts.splice(i,1); renderDropBanner(); }
   function beep(){ try{ if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)(); const o=audioCtx.createOscillator(),g=audioCtx.createGain(); o.connect(g);g.connect(audioCtx.destination); g.gain.setValueAtTime(0.3,audioCtx.currentTime); o.frequency.setValueAtTime(880,audioCtx.currentTime); o.frequency.setValueAtTime(660,audioCtx.currentTime+0.15); g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.6); o.start();o.stop(audioCtx.currentTime+0.6);}catch(e){} }
