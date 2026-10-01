@@ -23,11 +23,22 @@
       if (/LEG/.test(e.textContent)) return;
       e.textContent = 'LEG ' + (e.textContent || '').trim();
     });
-    // Footer version: append LEG sub-version after the base number
-    document.querySelectorAll('.app-ver').forEach(function (e) {
-      if (/LEG/.test(e.textContent)) return;               // already stamped
-      e.textContent = (e.textContent || '').trim() + ' · ' + LEG_VERSION;
-    });
+    buildFooter();
+  }
+  // Rebuild the footer to mirror wordly.ai (linked items), keeping the version.
+  // Version reads "<base> · LEG vN" so Chris can eyeball sync against the base app.
+  function buildFooter() {
+    const f = document.getElementById('app-footer'); if (!f) return;
+    const verEl = f.querySelector('.app-ver');
+    let baseVer = verEl ? (verEl.textContent || '').trim() : '';
+    baseVer = baseVer.replace(/\s*·\s*LEG.*$/i, '').trim();      // drop any prior LEG suffix
+    const ver = baseVer ? (baseVer + ' · ' + LEG_VERSION) : LEG_VERSION;
+    const a = (href, txt) => '<a href="' + href + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">' + txt + '</a>';
+    f.innerHTML =
+      a('https://wordly.ai/', 'Wordly AI Interpretation') + ' | ' +
+      a('https://wordly.ai/privacy-policy', 'Privacy Policy') + ' | ' +
+      a('https://wordly.ai/wordly-inc-terms-of-service', 'Terms of Service') + ' | ' +
+      'Copyright © 2019–2026 Wordly, Inc. | <span class="app-ver">' + ver + '</span>';
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () { setTimeout(stampLeg, 0); });

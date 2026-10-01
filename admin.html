@@ -224,6 +224,21 @@
     </div>
     </div><!-- /tab-active -->
   </div>
+
+  <!-- Zombie quick-access — pegged lower-right, every admin view -->
+  <button id="zombie-fab" onclick="openZombies()" title="Zombie Events — unassigned / bad-link devices"
+    class="fixed bottom-4 right-4 z-40 flex items-center gap-2 bg-yellow-50 border-2 border-amber-300 text-amber-900 rounded-full shadow-lg px-4 py-2 font-bold hover:border-amber-500">
+    <span class="text-xl leading-none">🧟</span><span class="text-sm">Zombies</span>
+    <span id="zombie-fab-count" class="text-xs font-black rounded-full px-2 py-0.5 bg-amber-200 text-amber-900">0</span>
+  </button>
+
+  <!-- Wordly footer (mirrors wordly.ai) -->
+  <footer class="mt-12 pt-4 text-center text-xs text-slate-400">
+    <a href="https://wordly.ai/" target="_blank" rel="noopener" class="hover:text-blue-600">Wordly AI Interpretation</a> |
+    <a href="https://wordly.ai/privacy-policy" target="_blank" rel="noopener" class="hover:text-blue-600">Privacy Policy</a> |
+    <a href="https://wordly.ai/wordly-inc-terms-of-service" target="_blank" rel="noopener" class="hover:text-blue-600">Terms of Service</a> |
+    Copyright &copy; 2019&ndash;2026 Wordly, Inc.
+  </footer>
 </div>
 
 <!-- Share dialog -->
@@ -311,19 +326,13 @@
     rogueRef.on('value', s => { zombieAgents = s.val() || {}; renderZombieCard(); });
   }
   function renderZombieCard(){
-    const el = document.getElementById('zombie-counts'); if (!el) return;
+    const el = document.getElementById('zombie-fab-count'); if (!el) return;
     const online = Object.keys(zombieAgents).filter(k => zombieAgents[k] && zombieAgents[k].online).length;
-    el.innerHTML = `<span class="text-xs font-bold px-2 py-0.5 rounded bg-green-100 text-green-700">● ${online}</span>`;
-  }
-  function zombieCardHtml(){
-    return `<div class="border-2 border-amber-300 rounded-xl p-4 bg-yellow-50 shadow-sm cursor-pointer hover:border-amber-500" id="ev-card-zombie" onclick="openZombies()">
-      <div class="font-black text-lg">🧟 Zombie Events</div>
-      <div class="text-xs text-amber-700 mt-1">Devices on a bad or missing event link. Click to triage and control them.</div>
-      <div class="flex flex-wrap items-center gap-2 mt-2">
-        <span class="text-xs font-bold uppercase px-2 py-0.5 rounded bg-amber-100 text-amber-800">Unassigned</span>
-        <span id="zombie-counts" class="flex gap-1.5"></span>
-      </div>
-    </div>`;
+    el.textContent = online;
+    // quiet the badge when there are none; flag it when there are
+    const fab = document.getElementById('zombie-fab');
+    if (fab) el.className = 'text-xs font-black rounded-full px-2 py-0.5 ' +
+      (online > 0 ? 'bg-red-200 text-red-800' : 'bg-amber-200 text-amber-900');
   }
 
   // ── Events list ──
@@ -335,8 +344,8 @@
   function renderEvents(map){
     const ids = Object.keys(map);
     const list = document.getElementById('events-list');
-    document.getElementById('events-empty').hidden = true;   // zombie card always fills the grid
-    list.innerHTML = zombieCardHtml() + ids.map(id => {
+    document.getElementById('events-empty').hidden = ids.length !== 0;
+    list.innerHTML = ids.map(id => {
       const role = (typeof map[id] === 'object' ? map[id].role : map[id]) || 'member';
       const name = (typeof map[id] === 'object' ? map[id].name : '') || id;
       return `<div class="border rounded-xl p-4 bg-white shadow-sm cursor-pointer hover:border-blue-400" id="ev-card-${id}" onclick="openEvent('${id}')">
@@ -395,10 +404,11 @@
   }
 
   // ── Event detail ──
-  function setEventChrome(){            // normal event: Share + Details tab visible
+  function setEventChrome(){            // normal event: Share + Details tab visible, zombie FAB available
     isZombie = false;
     document.getElementById('btn-share').style.display = '';
     document.getElementById('tabbtn-details').style.display = '';
+    const fab = document.getElementById('zombie-fab'); if (fab) fab.style.display = '';
   }
   function openEvent(id){
     setEventChrome();
@@ -434,6 +444,7 @@
     document.getElementById('event-id-label').textContent = 'unassigned / bad-link devices';
     document.getElementById('btn-share').style.display = 'none';      // nothing to share
     document.getElementById('tabbtn-details').style.display = 'none'; // no portal/details for zombies
+    document.getElementById('zombie-fab').style.display = 'none';     // already here
     showTab('active');
     document.getElementById('events-view').hidden = true;
     document.getElementById('event-view').hidden = false;

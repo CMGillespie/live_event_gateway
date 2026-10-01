@@ -171,5 +171,12 @@
   function refreshAll(){ Object.keys(agents).forEach(id=>{ const a=agents[id]; const ifr=document.getElementById('if-'+id); if(ifr){ ifr.src=frameUrl(a, Date.now()); lastReload[id]=Date.now(); } }); }
   document.getElementById('search').addEventListener('input', render);
 </script>
+
+<footer class="mt-10 pt-4 text-center text-xs text-slate-500">
+  <a href="https://wordly.ai/" target="_blank" rel="noopener" class="hover:text-blue-400">Wordly AI Interpretation</a> |
+  <a href="https://wordly.ai/privacy-policy" target="_blank" rel="noopener" class="hover:text-blue-400">Privacy Policy</a> |
+  <a href="https://wordly.ai/wordly-inc-terms-of-service" target="_blank" rel="noopener" class="hover:text-blue-400">Terms of Service</a> |
+  Copyright &copy; 2019&ndash;2026 Wordly, Inc.
+</footer>
 </body>
 </html>
