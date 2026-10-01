@@ -4,109 +4,117 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=800, initial-scale=1.0, user-scalable=no">
 <title>Wordly Presenter</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎙</text></svg>">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body {
   width: 100%; height: 100vh; overflow: hidden;
-  font-family: Arial, sans-serif;
-  background: #0D1B2E; color: #FFF;
+  font-family: 'Plus Jakarta Sans', Arial, sans-serif;
+  background: #121416; color: #FFF;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
-.screen { position: fixed; inset: 0; display: none; }
+.screen { position: fixed; inset: 0 0 26px 0; display: none; }
 .screen.active { display: flex; }
 
 /* ── PORTRAIT MODE ── */
 
 /* ── PANEL ── */
-#panel { position: fixed; inset: 0; background: #0D1B2E; z-index: 100; display: none; flex-direction: column; }
+#panel { position: fixed; inset: 0 0 26px 0; background: #121416; z-index: 100; display: none; flex-direction: column; }
 #panel.open { display: flex; }
-.phdr { display: flex; align-items: center; justify-content: space-between; background: #162540; padding: 12px 24px; height: 56px; flex-shrink: 0; border-bottom: 2px solid #1B3A6B; }
+.phdr { display: flex; align-items: center; justify-content: space-between; background: #1A1D21; padding: 12px 24px; height: 56px; flex-shrink: 0; border-bottom: 2px solid #282D35; }
 .phdr h2 { font-size: 20px; font-weight: bold; }
-.pclose { background: #1B3A6B; border: none; color: #FFF; padding: 8px 20px; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; }
+.phdr-l { display: flex; align-items: center; gap: 16px; }
+.phdr .brand-logo-svg { height: 26px; }
+.pclose { background: #282D35; border: none; color: #FFF; padding: 8px 20px; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; }
 .pbody { flex: 1; overflow-y: auto; padding: 16px 24px; }
-.pfoot { padding: 14px 24px; border-top: 1px solid #1B3A6B; flex-shrink: 0; }
+.pfoot { padding: 14px 24px; border-top: 1px solid #282D35; flex-shrink: 0; }
 
 /* ── FORM ── */
-.fl { font-size: 12px; color: #5A8AAA; margin-bottom: 5px; margin-top: 16px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: bold; display: block; }
-input[type=text], input[type=password] { width: 100%; padding: 13px 16px; background: #060E1A; border: 1px solid #2A5298; border-radius: 6px; color: #FFF; font-size: 18px; outline: none; }
-input:focus { border-color: #5AA0E9; }
-select { width: 100%; padding: 13px 16px; background: #060E1A; border: 1px solid #2A5298; border-radius: 6px; color: #FFF; font-size: 16px; outline: none; }
+.fl { font-size: 12px; color: #9BA3AB; margin-bottom: 5px; margin-top: 16px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: bold; display: block; }
+input[type=text], input[type=password] { width: 100%; padding: 13px 16px; background: #121416; border: 1px solid #343A40; border-radius: 6px; color: #FFF; font-size: 18px; outline: none; }
+input:focus { border-color: #75B8FF; }
+select { width: 100%; padding: 13px 16px; background: #121416; border: 1px solid #343A40; border-radius: 6px; color: #FFF; font-size: 16px; outline: none; }
 .pw-wrap { position: relative; }
-.pw-tog { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #5A8AAA; font-size: 14px; cursor: pointer; padding: 4px; }
-.hint { font-size: 12px; color: #5AA0E9; margin-top: 5px; }
-.msg  { font-size: 13px; color: #5A7A9A; margin-top: 8px; min-height: 18px; }
+.pw-tog { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #9BA3AB; font-size: 14px; cursor: pointer; padding: 4px; }
+.hint { font-size: 12px; color: #75B8FF; margin-top: 5px; }
+.msg  { font-size: 13px; color: #9BA3AB; margin-top: 8px; min-height: 18px; }
 .msg.ok  { color: #44CC77; }
 .msg.err { color: #FFAA20; }
 .btn-save { display: block; width: 100%; padding: 18px; border: none; border-radius: 8px; background: #145C30; color: #AAFFAA; font-size: 20px; font-weight: bold; cursor: pointer; }
 .btn-save:active { background: #1E7040; }
-.btn-test { padding: 12px 20px; border: none; border-radius: 6px; background: #1B3A6B; color: #88AACC; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+.btn-test { padding: 12px 20px; border: none; border-radius: 6px; background: #282D35; color: #9BA3AB; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 10px; }
 
 /* ══ IDLE ══ */
-#screen-idle { background: #0D1B2E; flex-direction: row; }
-.idle-left { width: 420px; flex-shrink: 0; display: flex; flex-direction: column; padding: 20px 16px 16px 22px; border-right: 2px solid #1B3A6B; }
-.brand { display: flex; align-items: baseline; gap: 10px; margin-bottom: 18px; }
-.brand-logo { font-size: 32px; font-weight: 900; }
-.brand-sub  { font-size: 15px; color: #4A90D9; }
-.scard { background: #162540; border-radius: 8px; padding: 14px 18px; margin-bottom: 12px; border-left: 4px solid #2A6DB5; }
-.scard-sid { font-family: monospace; font-size: 16px; color: #7AAAD5; letter-spacing: 1px; margin-bottom: 2px; }
+#screen-idle { background: #121416; flex-direction: row; }
+.idle-left { width: 420px; flex-shrink: 0; display: flex; flex-direction: column; padding: 20px 16px 16px 22px; border-right: 2px solid #282D35; }
+.brand { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+.brand-logo-svg { height: 34px; width: auto; display: block; }
+button, input, select, textarea { font-family: inherit; }
+button:focus-visible { outline: 3px solid #75B8FF; outline-offset: 2px; }
+.tog-wrap input:focus-visible + .tog-slide { outline: 3px solid #75B8FF; outline-offset: 2px; }
+.live-logo .brand-logo-svg { height: 28px; margin-bottom: 10px; }
+#app-footer { position: fixed; left: 0; right: 0; bottom: 0; height: 26px; line-height: 26px; text-align: center; font-size: 11px; color: #9BA3AB; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: #121416; z-index: 5; }
+.brand-sub  { font-size: 15px; color: #75B8FF; }
+.scard { background: #1A1D21; border-radius: 8px; padding: 14px 18px; margin-bottom: 12px; border-left: 4px solid #017CFF; }
+.scard-sid { font-family: monospace; font-size: 16px; color: #9BA3AB; letter-spacing: 1px; margin-bottom: 2px; }
 .scard-sub { font-size: 30px; font-weight: bold; color: #FFFFFF; margin-bottom: 4px; }
-.scard-dev { font-size: 13px; color: #4A6A8A; margin-top: 6px; }
-.net-line   { font-size: 14px; color: #3A5A7A; margin-bottom: auto; }
-.net-line.ok { color: #4A90D9; }
+.scard-dev { font-size: 13px; color: #9BA3AB; margin-top: 6px; }
+.net-line   { font-size: 14px; color: #9BA3AB; margin-bottom: auto; }
+.net-line.ok { color: #75B8FF; }
 .ibtns-top { margin-top: 14px; }
-.ibtns-top button { display: block; width: 100%; padding: 20px; font-size: 22px; font-weight: bold; background: #162540; color: #FFF; border: none; border-radius: 8px; cursor: pointer; margin-bottom: 8px; text-align: left; }
-.ibtns-top button:active { background: #1E3A60; }
+.ibtns-top button { display: block; width: 100%; padding: 20px; font-size: 22px; font-weight: bold; background: #1A1D21; color: #FFF; border: none; border-radius: 8px; cursor: pointer; margin-bottom: 8px; text-align: left; }
+.ibtns-top button:active { background: #2F353E; }
 .ibtns-bot { display: flex; gap: 8px; }
-.ibtns-bot button { flex: 1; padding: 16px 8px; font-size: 20px; font-weight: bold; background: #162540; color: #FFF; border: none; border-radius: 8px; cursor: pointer; }
-.ibtns-bot button:active { background: #1E3A60; }
-.btn-quit { background: #2A0A0A !important; color: #FF8888 !important; }
+.ibtns-bot button { flex: 1; padding: 16px 8px; font-size: 20px; font-weight: bold; background: #1A1D21; color: #FFF; border: none; border-radius: 8px; cursor: pointer; }
+.ibtns-bot button:active { background: #2F353E; }
+.btn-quit { background: #2E0906 !important; color: #F07870 !important; }
 .idle-right { flex: 1; display: flex; flex-direction: column; align-items: stretch; justify-content: center; padding: 20px; }
-#btn-start { flex: 1; font-size: 36px; font-weight: 900; background: #1B5CAA; color: #FFF; border: none; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.2; }
-#btn-start.disabled { background: #111E30; color: #2A4A6A; cursor: default; }
-#btn-start:not(.disabled):active { background: #2A6CBA; }
-.start-hint { font-size: 14px; color: #2A4A6A; text-align: center; margin-top: 10px; }
+#btn-start { flex: 1; font-size: 36px; font-weight: 900; background: #017CFF; color: #FFF; border: none; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.2; }
+#btn-start.disabled { background: #21252B; color: #646E78; cursor: default; }
+#btn-start:not(.disabled):active { filter: brightness(0.9); }
+.start-hint { font-size: 14px; color: #9BA3AB; text-align: center; margin-top: 10px; }
 
 /* ══ STREAMING ══ */
 #screen-streaming { flex-direction: row; }
 
 /* Left info panel */
-.sinfo { width: 380px; flex-shrink: 0; background: #162540; display: flex; flex-direction: column; padding: 16px 16px 12px 20px; border-right: 3px solid #2E7D32; }
+.sinfo { width: 380px; flex-shrink: 0; background: #1A1D21; display: flex; flex-direction: column; padding: 16px 16px 12px 20px; border-right: 3px solid #129737; }
 .si-sid    { font-family: monospace; font-size: 28px; font-weight: 900; color: #FFF; margin-bottom: 4px; letter-spacing: 2px; }
 .si-status { font-size: 40px; font-weight: 900; color: #FFF; line-height: 1; margin-bottom: 4px; }
-.si-timer  { font-family: monospace; font-size: 30px; font-weight: bold; color: #55CCFF; margin-bottom: 12px; }
+.si-timer  { font-family: monospace; font-size: 30px; font-weight: bold; color: #75B8FF; margin-bottom: 12px; }
 
 /* ALS toggle */
 .als-row  { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.als-lbl  { font-size: 13px; color: #7AAACC; font-weight: bold; }
+.als-lbl  { font-size: 13px; color: #9BA3AB; font-weight: bold; }
 .tog-wrap { position: relative; width: 44px; height: 24px; cursor: pointer; flex-shrink: 0; }
 .tog-wrap input { opacity: 0; width: 0; height: 0; }
-.tog-slide { position: absolute; inset: 0; background: #1B3A6B; border-radius: 24px; transition: 0.3s; }
+.tog-slide { position: absolute; inset: 0; background: #282D35; border-radius: 24px; transition: 0.3s; }
 .tog-slide:before { content: ''; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background: #FFF; border-radius: 50%; transition: 0.3s; }
-input:checked + .tog-slide { background: #2A6DB5; }
+input:checked + .tog-slide { background: #017CFF; }
 input:checked + .tog-slide:before { transform: translateX(20px); }
 
 /* Language grid */
-.ls-label { font-size: 11px; color: #5A8AAA; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; font-weight: bold; }
+.ls-label { font-size: 11px; color: #75B8FF; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; font-weight: bold; }
 .ls-grid  { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 8px; }
 .ls-btn   {
-  padding: 14px 8px; font-size: 16px; font-weight: bold;
-  background: #1B3A6B; color: #FFFFFF;
-  border: 1px solid #2A5298; border-radius: 8px;
+  padding: 14px 8px; font-size: 19px; font-weight: bold;
+  background: #282D35; color: #FFFFFF;
+  border: 1px solid #343A40; border-radius: 8px;
   cursor: pointer; text-align: center;
   line-height: 1.3; word-break: break-word; white-space: normal;
   min-height: 56px; display: flex; align-items: center; justify-content: center;
 }
-.ls-btn.active { background: #2A6DB5; color: #FFF; border-color: #5AA0E9; box-shadow: 0 0 0 2px #5AA0E9; }
+.ls-btn.active { background: #017CFF; color: #FFF; border-color: #75B8FF; box-shadow: 0 0 0 2px #75B8FF; }
 .ls-btn:active { opacity: 0.8; }
 
 
 /* Schedule pill */
 .sched-pill {
   font-size: 11px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase;
-  background: #1B3A6B; color: #88AACC;
-  border: 1px solid #2A5298; border-radius: 20px;
+  background: #282D35; color: #9BA3AB;
+  border: 1px solid #343A40; border-radius: 20px;
   padding: 5px 14px; margin-bottom: 8px;
   display: none;
 }
@@ -119,23 +127,23 @@ input:checked + .tog-slide:before { transform: translateX(20px); }
 .cap-pill {
   display: inline-block; padding: 5px 14px;
   font-size: 11px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase;
-  background: #1B3A6B; color: #88AACC;
-  border: 1px solid #2A5298; border-radius: 20px;
+  background: #282D35; color: #9BA3AB;
+  border: 1px solid #343A40; border-radius: 20px;
   cursor: pointer; margin-bottom: 8px; transition: background 0.15s;
 }
-.cap-pill.fired { background: #2A6DB5; color: #FFF; }
+.cap-pill.fired { background: #0063CC; color: #FFF; }
 
 /* Meter */
 .meter-wrap  { margin-top: auto; padding-top: 8px; }
-.meter-label { font-size: 11px; color: #7AAACC; margin-bottom: 4px; letter-spacing: 1px; font-weight: bold; }
-.meter-track { width: 100%; height: 20px; background: #060E1A; border-radius: 10px; overflow: hidden; border: 2px solid #1B3A6B; }
-.meter-fill  { height: 100%; background: linear-gradient(90deg, #00FF88, #00CCFF); width: 0%; border-radius: 10px; }
+.meter-label { font-size: 11px; color: #9BA3AB; margin-bottom: 4px; letter-spacing: 1px; font-weight: bold; }
+.meter-track { width: 100%; height: 20px; background: #121416; border-radius: 10px; overflow: hidden; border: 2px solid #282D35; }
+.meter-fill  { height: 100%; background: linear-gradient(90deg, #48EA76, #75B8FF); width: 0%; border-radius: 10px; }
 
 /* Right action panel */
-.sactions { flex: 1; background: #1A6020; display: flex; flex-direction: column; padding: 10px; gap: 8px; }
+.sactions { flex: 1; background: #0A521E; display: flex; flex-direction: column; padding: 10px; gap: 8px; }
 #btn-mute  {
-  flex: 1; background: #2E8A36; color: #FFF;
-  border: 3px solid #44BB55; border-radius: 10px;
+  flex: 1; background: #129737; color: #FFF;
+  border: 3px solid #48EA76; border-radius: 10px;
   font-size: 52px; font-weight: 900; cursor: pointer;
   letter-spacing: 3px; box-shadow: inset 0 -6px 0 rgba(0,0,0,0.3);
 }
@@ -150,7 +158,7 @@ input:checked + .tog-slide:before { transform: translateX(20px); }
 .sbot { display: flex; gap: 8px; height: 80px; flex-shrink: 0; }
 #btn-split { flex: 1; background: #0D4A0D; color: #66EE66; border: 2px solid #2A7A2A; border-radius: 8px; font-size: 22px; font-weight: bold; cursor: pointer; }
 #btn-split.flash { background: #1E7A1E; color: #FFF; }
-#btn-leave { flex: 1; background: #1A2A50; color: #88AADD; border: 2px solid #2A4A80; border-radius: 8px; font-size: 22px; font-weight: bold; cursor: pointer; }
+#btn-leave { flex: 1; background: #282D35; color: #9BA3AB; border: 2px solid #343A40; border-radius: 8px; font-size: 22px; font-weight: bold; cursor: pointer; }
 #btn-end   { flex: 1; background: #550000; color: #FFAAAA; border: 2px solid #880000; border-radius: 8px; font-size: 22px; font-weight: bold; cursor: pointer; }
 
 /* Mute pulse */
@@ -165,33 +173,33 @@ input:checked + .tog-slide:before { transform: translateX(20px); }
 #btn-giveup { padding: 18px 40px; font-size: 20px; font-weight: bold; background: #220000; color: #FFAAAA; border: 2px solid #880000; border-radius: 10px; cursor: pointer; }
 
 /* ══ ENDED ══ */
-#screen-ended { background: #0D1B2E; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 12px; padding: 30px; }
+#screen-ended { background: #121416; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 12px; padding: 30px; }
 .en-title { font-size: 48px; font-weight: 900; }
-.en-sub   { font-size: 20px; color: #4A7AAA; }
-.en-cd    { font-size: 18px; color: #2A6AAA; margin-top: 8px; }
-#btn-restart  { width: 320px; padding: 20px; font-size: 24px; font-weight: bold; background: #1B5CAA; color: #FFF; border: none; border-radius: 10px; cursor: pointer; margin-top: 14px; }
-#btn-cancelcd { width: 220px; padding: 12px; font-size: 15px; background: #162540; color: #4A7AAA; border: none; border-radius: 8px; cursor: pointer; }
+.en-sub   { font-size: 20px; color: #9BA3AB; }
+.en-cd    { font-size: 18px; color: #9BA3AB; margin-top: 8px; }
+#btn-restart  { width: 320px; padding: 20px; font-size: 24px; font-weight: bold; background: #017CFF; color: #FFF; border: none; border-radius: 10px; cursor: pointer; margin-top: 14px; }
+#btn-cancelcd { width: 220px; padding: 12px; font-size: 15px; background: #1A1D21; color: #9BA3AB; border: none; border-radius: 8px; cursor: pointer; }
 
 /* ── CONFIRM ── */
 #conf-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200; display: none; align-items: center; justify-content: center; }
 #conf-overlay.open { display: flex; }
-.conf-box  { background: #162540; border-radius: 12px; padding: 32px; max-width: 480px; width: 90%; text-align: center; border: 2px solid #2A5298; }
+.conf-box  { background: #1A1D21; border-radius: 12px; padding: 32px; max-width: 480px; width: 90%; text-align: center; border: 2px solid #343A40; }
 .conf-msg  { font-size: 20px; color: #FFF; margin-bottom: 24px; line-height: 1.4; white-space: pre-line; }
 .conf-btns { display: flex; gap: 12px; justify-content: center; }
-.conf-yes  { padding: 16px 32px; font-size: 18px; font-weight: bold; background: #1B5CAA; color: #FFF; border: none; border-radius: 8px; cursor: pointer; }
-.conf-no   { padding: 16px 32px; font-size: 18px; font-weight: bold; background: #162540; color: #8AAACC; border: 2px solid #2A5298; border-radius: 8px; cursor: pointer; }
+.conf-yes  { padding: 16px 32px; font-size: 18px; font-weight: bold; background: #0063CC; color: #FFF; border: none; border-radius: 8px; cursor: pointer; }
+.conf-no   { padding: 16px 32px; font-size: 18px; font-weight: bold; background: #1A1D21; color: #9BA3AB; border: 2px solid #343A40; border-radius: 8px; cursor: pointer; }
 
 /* ══ PORTRAIT MODE ══════════════════════════════════════════
    Applied when body.portrait — targets 480×800 viewport
    All landscape px values stay; portrait overrides stack below
 ════════════════════════════════════════════════════════════ */
 body.portrait #screen-idle    { flex-direction: column; }
-body.portrait .idle-left      { width: 100%; border-right: none; border-bottom: 1px solid #1B3A6B; padding: 16px 16px 12px 18px; }
+body.portrait .idle-left      { width: 100%; border-right: none; border-bottom: 1px solid #282D35; padding: 16px 16px 12px 18px; }
 body.portrait .idle-right     { flex: none; height: 220px; padding: 16px; }
 body.portrait #btn-start      { font-size: 28px; }
 
 body.portrait #screen-streaming { flex-direction: column; }
-body.portrait .sinfo          { width: 100%; border-right: none; border-bottom: 3px solid #2E7D32; padding: 12px 16px 10px 18px; flex-shrink: 0; }
+body.portrait .sinfo          { width: 100%; border-right: none; border-bottom: 3px solid #129737; padding: 12px 16px 10px 18px; flex-shrink: 0; }
 body.portrait .si-room        { font-size: 26px; }
 body.portrait .si-status      { font-size: 36px; margin-bottom: 2px; }
 body.portrait .si-timer       { font-size: 24px; margin-bottom: 6px; }
@@ -208,22 +216,29 @@ body.portrait #btn-split, body.portrait #btn-leave, body.portrait #btn-end { fon
 </style>
 </head>
 <body>
+<div id="app-footer">Wordly AI Interpretation | Privacy Policy | Terms of Service | Copyright &copy; 2019-2026 Wordly, Inc. | <span class="app-ver"></span></div>
 
 <!-- IDLE -->
 <div id="screen-idle" class="screen active">
   <div class="idle-left">
-    <div class="brand"><span class="brand-logo">WORDLY</span><span class="brand-sub">Presenter</span></div>
+    <div class="brand"><svg class="brand-logo-svg" role="img" aria-label="Wordly" viewBox="0 0 535 160" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:c2pa="http://c2pa.org/manifest"><metadata><c2pa:manifest>AAAWgmp1bWIAAAAeanVtZGMycGEAEQAQgAAAqgA4m3EDYzJwYQAAABZcanVtYgAAAEdqdW1kYzJtYQARABCAAACqADibcQN1cm46YzJwYTo1ODI5NGM4Zi04MTJmLTQwODgtOTc0Ny1lMWFlYWVjN2UxNDEAAAADl2p1bWIAAAApanVtZGMyYXMAEQAQgAAAqgA4m3EDYzJwYS5hc3NlcnRpb25zAAAAALxqdW1iAAAARGp1bWRjYm9yABEAEIAAAKoAOJtxE2MycGEuaW5ncmVkaWVudC52MwAAAAAYYzJzaHnUH18NzY/jbUgncxnnI4YAAABwY2JvcqNpZGM6Zm9ybWF0bWltYWdlL3N2Zyt4bWxqaW5zdGFuY2VJRHgseG1wOmlpZDo3M2M0MTk4Yy1jOTdjLTQwODctOGFkMy00YTI3M2ViMDVhZDBscmVsYXRpb25zaGlwaHBhcmVudE9mAAAB4mp1bWIAAABBanVtZGNib3IAEQAQgAAAqgA4m3ETYzJwYS5hY3Rpb25zLnYyAAAAABhjMnNod9+fEJcbZyL5X9Y1apv5bgAAAZljYm9yomdhY3Rpb25zgqJmYWN0aW9ua2MycGEub3BlbmVkanBhcmFtZXRlcnOha2luZ3JlZGllbnRzgaJjdXJseC1zZWxmI2p1bWJmPWMycGEuYXNzZXJ0aW9ucy9jMnBhLmluZ3JlZGllbnQudjNkaGFzaFggy6UgDjTQehtTROvKCufuP+9YfaDWSsz5yknT/Eo7f7GkZmFjdGlvbngdY29tLmFudGhyb3BpYy5jbGF1ZGUucHJvdmlkZWRqcGFyYW1ldGVyc6F4H2NvbS5hbnRocm9waWMub3JpZ2luLWNvbmZpZGVuY2VndW5rbm93bmtkZXNjcmlwdGlvbnhmQ2xhdWRlIHByb3ZpZGVkIHRoaXMgZmlsZSBhdCB0aGUgcmVxdWVzdCBvZiBhIHVzZXIgYW5kIG1heSBoYXZlIGNyZWF0ZWQgb3IgbW9kaWZpZWQgdGhlIGZpbGUgY29udGVudHMubXNvZnR3YXJlQWdlbnShZG5hbWVmQ2xhdWRlcmFsbEFjdGlvbnNJbmNsdWRlZPUAAADIanVtYgAAAEBqdW1kY2JvcgARABCAAACqADibcRNjMnBhLmhhc2guZGF0YQAAAAAYYzJzaAbXA/gqHhMcYfQKMMVT7I8AAACAY2JvcqVjYWxnZnNoYTI1NmNwYWRNAAAAAAAAAAAAAAAAAGRoYXNoWCCSWPRlofc4vcC9hjHCpFxUvNj4wAwvdp4PBfKCZy0b5WRuYW1lbmp1bWJmIG1hbmlmZXN0amV4Y2x1c2lvbnOBomVzdGFydBiiZmxlbmd0aBkeBAAAAj5qdW1iAAAAJ2p1bWRjMmNsABEAEIAAAKoAOJtxA2MycGEuY2xhaW0udjIAAAACD2Nib3KlY2FsZ2ZzaGEyNTZpc2lnbmF0dXJleE1zZWxmI2p1bWJmPS9jMnBhL3VybjpjMnBhOjU4Mjk0YzhmLTgxMmYtNDA4OC05NzQ3LWUxYWVhZWM3ZTE0MS9jMnBhLnNpZ25hdHVyZWppbnN0YW5jZUlEeCx4bXA6aWlkOjk4NmVhOTIxLTA5YzYtNDI5NC1hNjI3LWRiYmIyNDc4NTQyN3JjcmVhdGVkX2Fzc2VydGlvbnODomN1cmx4LXNlbGYjanVtYmY9YzJwYS5hc3NlcnRpb25zL2MycGEuaW5ncmVkaWVudC52M2RoYXNoWCDLpSAONNB6G1NE68oK5+4/71h9oNZKzPnKSdP8Sjt/saJjdXJseCpzZWxmI2p1bWJmPWMycGEuYXNzZXJ0aW9ucy9jMnBhLmFjdGlvbnMudjJkaGFzaFggScpFgES8Uwojp2DVF9xOLg7wqs/kfIra05tVJJytGCmiY3VybHgpc2VsZiNqdW1iZj1jMnBhLmFzc2VydGlvbnMvYzJwYS5oYXNoLmRhdGFkaGFzaFggQ1RTMNGiNZa8HeESy5q2qRRqQC+BcRhVz8+YyQyXUvV0Y2xhaW1fZ2VuZXJhdG9yX2luZm+jZG5hbWVvQW50aHJvcGljIEZpbGVzZ3ZlcnNpb25lMS4wLjBrc3BlY1ZlcnNpb25lMi40LjAAABA4anVtYgAAAChqdW1kYzJjcwARABCAAACqADibcQNjMnBhLnNpZ25hdHVyZQAAABAIY2JvctKEWQISogEmGCFZAgowggIGMIIBjaADAgECAhRA5aAK7sI50L64g/oGQgU9Z1UTADAKBggqhkjOPQQDAzBJMRcwFQYDVQQKEw5BbnRocm9waWMsIFBCQzEuMCwGA1UEAxMlQW50aHJvcGljIENvbnRlbnQgQ3JlZGVudGlhbHMgUm9vdCBDQTAeFw0yNjA4MDcxODQzNTZaFw0yODA4MDYxOTQzNTZaMEQxFzAVBgNVBAoTDkFudGhyb3BpYywgUEJDMSkwJwYDVQQDEyBBbnRocm9waWMgQ2xhdWRlIENvbnRlbnQgU2lnbmluZzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABJh6CmvLUBgFFNU0vUKlOVtE6djd17L5SuwX0LemFisBM3dkd/3cyjxFA3Qo5S46fX0/ihY0VZ7mfb9KF703t5OjWDBWMA4GA1UdDwEB/wQEAwIHgDAVBgNVHSUEDjAMBgorBgEEAYPoXgIBMAwGA1UdEwEB/wQCMAAwHwYDVR0jBBgwFoAUzlHiBIFOZFsj+OPEz5o+nMHXXMIwCgYIKoZIzj0EAwMDZwAwZAIwMXMdFJ4BetLLVY7ORuE9noqbbAZOZn/aArXyTwFAZfKrPzxF2vPoJNf1+UCdg1XGAjBwX1zd9WGqYkqmL5SFqw1QySjr1zJfpJM9+1rdDwSPLMOPOjKuiXjoU/pUUeG9RwmhY3BhZFkNngAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPZYQIp4NOeZcCL8Jti2AqgPc9DKSuNbo5NX5IToOyTg7tzuIiiG1AH3vJfvc1wgZH9qi5VY1gG+4vBtb99FtrtDqPE=</c2pa:manifest></metadata>
+<path d="M173.768 24.9365L179.841 1.80344H169.228C152.728 1.80344 138.28 12.9554 134.093 28.9164L120.91 79.3283L101.632 1.78271H77.7529L58.579 79.0174L45.4578 28.9164C41.2913 12.9554 26.8435 1.80344 10.3436 1.80344H0L6.07347 24.9365H10.3436C16.3341 24.9365 21.5784 28.9786 23.0916 34.7826L43.4471 112.992H70.3113L89.7133 38.3687L109.115 112.992H135.979L156.48 34.7826C157.993 28.9993 163.238 24.9365 169.228 24.9365H173.768Z" fill="white"/>
+<path d="M259.956 67.8646V112.97H283.089V67.8646C283.089 59.6768 289.764 53.0022 297.952 53.0022H308.44L314.493 29.8691H297.952C276.995 29.8691 259.956 46.908 259.956 67.8646Z" fill="white"/>
+<path d="M228.158 35.2162C221.587 31.5265 214.27 29.7024 206.227 29.7024C198.185 29.7024 190.826 31.5472 184.214 35.2162C177.601 38.9059 172.315 43.9222 168.398 50.2859C164.459 56.6495 162.511 63.9667 162.511 72.2167C162.511 80.4667 164.48 87.6595 168.398 94.0854C172.336 100.511 177.601 105.548 184.214 109.238C190.826 112.928 198.164 114.752 206.227 114.752C214.291 114.752 221.608 112.907 228.158 109.238C234.729 105.548 239.973 100.511 243.912 94.0854C247.85 87.6595 249.799 80.3838 249.799 72.2167C249.799 64.0496 247.83 56.6495 243.912 50.2859C239.973 43.9222 234.729 38.8852 228.158 35.2162ZM224.054 83.8662C222.313 87.2449 219.929 89.8774 216.882 91.7845C213.855 93.6708 210.29 94.6243 206.207 94.6243C202.123 94.6243 198.537 93.6708 195.469 91.7845C192.381 89.8982 189.976 87.2656 188.235 83.8662C186.494 80.4874 185.623 76.6112 185.623 72.2167C185.623 67.8222 186.494 63.9875 188.235 60.6502C189.976 57.3129 192.381 54.6803 195.469 52.7318C198.558 50.7834 202.123 49.8298 206.207 49.8298C210.29 49.8298 213.835 50.8041 216.882 52.7318C219.908 54.6803 222.313 57.3129 224.054 60.6502C225.795 63.9875 226.666 67.843 226.666 72.2167C226.666 76.5904 225.795 80.4874 224.054 83.8662Z" fill="white"/>
+<path d="M380.121 38.4308C377.986 36.2957 375.499 34.4716 372.576 33.0621C367.953 30.8234 362.647 29.7041 356.677 29.7041C348.925 29.7041 341.898 31.5904 335.638 35.3837C329.378 39.1563 324.403 44.2555 320.713 50.6814C317.023 57.1072 315.199 64.2793 315.199 72.2391C315.199 80.1989 317.023 87.2673 320.651 93.7346C324.278 100.202 329.232 105.322 335.493 109.115C341.753 112.888 348.883 114.795 356.843 114.795C362.419 114.795 367.58 113.779 372.369 111.727C376.038 110.152 379.126 107.996 381.614 105.28V113.012H402.508V0H380.121V38.4308ZM377.489 83.8678C375.747 87.2466 373.343 89.8791 370.254 91.7861C367.166 93.6724 363.58 94.626 359.517 94.626C355.454 94.626 351.785 93.6724 348.551 91.7861C345.318 89.8998 342.81 87.2673 341.006 83.8678C339.224 80.4891 338.312 76.6128 338.312 72.2184C338.312 67.8239 339.203 63.9891 341.006 60.6518C342.789 57.3145 345.318 54.682 348.551 52.7335C351.785 50.785 355.433 49.8315 359.517 49.8315C363.6 49.8315 367.186 50.785 370.254 52.6713C373.343 54.5576 375.747 57.1901 377.489 60.5896C379.23 63.9684 380.1 67.8446 380.1 72.2391C380.1 76.6336 379.23 80.5098 377.489 83.8886V83.8678Z" fill="white"/>
+<path d="M438.108 0H415.721V112.971H438.108V0Z" fill="white"/>
+<path d="M534.516 31.4851H510.492L494.717 74.4347C493.432 77.3574 492.209 80.3009 491.007 83.2651L471.999 31.4851H447.974L479.938 112.575C477.512 119.188 474.61 126.111 471.045 129.739C461.468 142.031 438.688 141.388 438.19 123.292H415.907C415.492 140.393 428.655 156.043 445.404 159.09C469.304 164.21 490.675 146.757 497.847 125.199L534.516 31.4851Z" fill="white"/>
+</svg><span class="brand-sub">Presenter</span></div>
     <div class="scard">
-      <div class="scard-sub" id="card-sub" style="color:#3A6A9A">Not configured</div>
-      <div class="scard-sid" id="card-sid" style="color:#3A6A9A"></div>
+      <div class="scard-sub" id="card-sub" style="color:#9BA3AB">Not configured</div>
+      <div class="scard-sid" id="card-sid" style="color:#9BA3AB"></div>
       <div class="scard-dev" id="card-dev"></div>
     </div>
     <div class="net-line" id="net-line">Checking network...</div>
     <div class="ibtns-top">
-      <button onclick="openPanel('wordly')">🎙 Wordly Session Config</button>
+      <button onclick="openPanel()">⚙ App Setup</button>
     </div>
     <div class="ibtns-bot" style="margin-top:8px">
-      <button onclick="openPanel('network')">🌐 Network</button>
       <button class="btn-quit" onclick="confirm2('Quit this app?', doQuit)">✕ Quit</button>
     </div>
   </div>
@@ -236,6 +251,14 @@ body.portrait #btn-split, body.portrait #btn-leave, body.portrait #btn-end { fon
 <!-- STREAMING -->
 <div id="screen-streaming" class="screen">
   <div class="sinfo">
+    <div class="live-logo"><svg class="brand-logo-svg" role="img" aria-label="Wordly" viewBox="0 0 535 160" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:c2pa="http://c2pa.org/manifest"><metadata><c2pa:manifest>AAAWgmp1bWIAAAAeanVtZGMycGEAEQAQgAAAqgA4m3EDYzJwYQAAABZcanVtYgAAAEdqdW1kYzJtYQARABCAAACqADibcQN1cm46YzJwYTo1ODI5NGM4Zi04MTJmLTQwODgtOTc0Ny1lMWFlYWVjN2UxNDEAAAADl2p1bWIAAAApanVtZGMyYXMAEQAQgAAAqgA4m3EDYzJwYS5hc3NlcnRpb25zAAAAALxqdW1iAAAARGp1bWRjYm9yABEAEIAAAKoAOJtxE2MycGEuaW5ncmVkaWVudC52MwAAAAAYYzJzaHnUH18NzY/jbUgncxnnI4YAAABwY2JvcqNpZGM6Zm9ybWF0bWltYWdlL3N2Zyt4bWxqaW5zdGFuY2VJRHgseG1wOmlpZDo3M2M0MTk4Yy1jOTdjLTQwODctOGFkMy00YTI3M2ViMDVhZDBscmVsYXRpb25zaGlwaHBhcmVudE9mAAAB4mp1bWIAAABBanVtZGNib3IAEQAQgAAAqgA4m3ETYzJwYS5hY3Rpb25zLnYyAAAAABhjMnNod9+fEJcbZyL5X9Y1apv5bgAAAZljYm9yomdhY3Rpb25zgqJmYWN0aW9ua2MycGEub3BlbmVkanBhcmFtZXRlcnOha2luZ3JlZGllbnRzgaJjdXJseC1zZWxmI2p1bWJmPWMycGEuYXNzZXJ0aW9ucy9jMnBhLmluZ3JlZGllbnQudjNkaGFzaFggy6UgDjTQehtTROvKCufuP+9YfaDWSsz5yknT/Eo7f7GkZmFjdGlvbngdY29tLmFudGhyb3BpYy5jbGF1ZGUucHJvdmlkZWRqcGFyYW1ldGVyc6F4H2NvbS5hbnRocm9waWMub3JpZ2luLWNvbmZpZGVuY2VndW5rbm93bmtkZXNjcmlwdGlvbnhmQ2xhdWRlIHByb3ZpZGVkIHRoaXMgZmlsZSBhdCB0aGUgcmVxdWVzdCBvZiBhIHVzZXIgYW5kIG1heSBoYXZlIGNyZWF0ZWQgb3IgbW9kaWZpZWQgdGhlIGZpbGUgY29udGVudHMubXNvZnR3YXJlQWdlbnShZG5hbWVmQ2xhdWRlcmFsbEFjdGlvbnNJbmNsdWRlZPUAAADIanVtYgAAAEBqdW1kY2JvcgARABCAAACqADibcRNjMnBhLmhhc2guZGF0YQAAAAAYYzJzaAbXA/gqHhMcYfQKMMVT7I8AAACAY2JvcqVjYWxnZnNoYTI1NmNwYWRNAAAAAAAAAAAAAAAAAGRoYXNoWCCSWPRlofc4vcC9hjHCpFxUvNj4wAwvdp4PBfKCZy0b5WRuYW1lbmp1bWJmIG1hbmlmZXN0amV4Y2x1c2lvbnOBomVzdGFydBiiZmxlbmd0aBkeBAAAAj5qdW1iAAAAJ2p1bWRjMmNsABEAEIAAAKoAOJtxA2MycGEuY2xhaW0udjIAAAACD2Nib3KlY2FsZ2ZzaGEyNTZpc2lnbmF0dXJleE1zZWxmI2p1bWJmPS9jMnBhL3VybjpjMnBhOjU4Mjk0YzhmLTgxMmYtNDA4OC05NzQ3LWUxYWVhZWM3ZTE0MS9jMnBhLnNpZ25hdHVyZWppbnN0YW5jZUlEeCx4bXA6aWlkOjk4NmVhOTIxLTA5YzYtNDI5NC1hNjI3LWRiYmIyNDc4NTQyN3JjcmVhdGVkX2Fzc2VydGlvbnODomN1cmx4LXNlbGYjanVtYmY9YzJwYS5hc3NlcnRpb25zL2MycGEuaW5ncmVkaWVudC52M2RoYXNoWCDLpSAONNB6G1NE68oK5+4/71h9oNZKzPnKSdP8Sjt/saJjdXJseCpzZWxmI2p1bWJmPWMycGEuYXNzZXJ0aW9ucy9jMnBhLmFjdGlvbnMudjJkaGFzaFggScpFgES8Uwojp2DVF9xOLg7wqs/kfIra05tVJJytGCmiY3VybHgpc2VsZiNqdW1iZj1jMnBhLmFzc2VydGlvbnMvYzJwYS5oYXNoLmRhdGFkaGFzaFggQ1RTMNGiNZa8HeESy5q2qRRqQC+BcRhVz8+YyQyXUvV0Y2xhaW1fZ2VuZXJhdG9yX2luZm+jZG5hbWVvQW50aHJvcGljIEZpbGVzZ3ZlcnNpb25lMS4wLjBrc3BlY1ZlcnNpb25lMi40LjAAABA4anVtYgAAAChqdW1kYzJjcwARABCAAACqADibcQNjMnBhLnNpZ25hdHVyZQAAABAIY2JvctKEWQISogEmGCFZAgowggIGMIIBjaADAgECAhRA5aAK7sI50L64g/oGQgU9Z1UTADAKBggqhkjOPQQDAzBJMRcwFQYDVQQKEw5BbnRocm9waWMsIFBCQzEuMCwGA1UEAxMlQW50aHJvcGljIENvbnRlbnQgQ3JlZGVudGlhbHMgUm9vdCBDQTAeFw0yNjA4MDcxODQzNTZaFw0yODA4MDYxOTQzNTZaMEQxFzAVBgNVBAoTDkFudGhyb3BpYywgUEJDMSkwJwYDVQQDEyBBbnRocm9waWMgQ2xhdWRlIENvbnRlbnQgU2lnbmluZzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABJh6CmvLUBgFFNU0vUKlOVtE6djd17L5SuwX0LemFisBM3dkd/3cyjxFA3Qo5S46fX0/ihY0VZ7mfb9KF703t5OjWDBWMA4GA1UdDwEB/wQEAwIHgDAVBgNVHSUEDjAMBgorBgEEAYPoXgIBMAwGA1UdEwEB/wQCMAAwHwYDVR0jBBgwFoAUzlHiBIFOZFsj+OPEz5o+nMHXXMIwCgYIKoZIzj0EAwMDZwAwZAIwMXMdFJ4BetLLVY7ORuE9noqbbAZOZn/aArXyTwFAZfKrPzxF2vPoJNf1+UCdg1XGAjBwX1zd9WGqYkqmL5SFqw1QySjr1zJfpJM9+1rdDwSPLMOPOjKuiXjoU/pUUeG9RwmhY3BhZFkNngAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPZYQIp4NOeZcCL8Jti2AqgPc9DKSuNbo5NX5IToOyTg7tzuIiiG1AH3vJfvc1wgZH9qi5VY1gG+4vBtb99FtrtDqPE=</c2pa:manifest></metadata>
+<path d="M173.768 24.9365L179.841 1.80344H169.228C152.728 1.80344 138.28 12.9554 134.093 28.9164L120.91 79.3283L101.632 1.78271H77.7529L58.579 79.0174L45.4578 28.9164C41.2913 12.9554 26.8435 1.80344 10.3436 1.80344H0L6.07347 24.9365H10.3436C16.3341 24.9365 21.5784 28.9786 23.0916 34.7826L43.4471 112.992H70.3113L89.7133 38.3687L109.115 112.992H135.979L156.48 34.7826C157.993 28.9993 163.238 24.9365 169.228 24.9365H173.768Z" fill="white"/>
+<path d="M259.956 67.8646V112.97H283.089V67.8646C283.089 59.6768 289.764 53.0022 297.952 53.0022H308.44L314.493 29.8691H297.952C276.995 29.8691 259.956 46.908 259.956 67.8646Z" fill="white"/>
+<path d="M228.158 35.2162C221.587 31.5265 214.27 29.7024 206.227 29.7024C198.185 29.7024 190.826 31.5472 184.214 35.2162C177.601 38.9059 172.315 43.9222 168.398 50.2859C164.459 56.6495 162.511 63.9667 162.511 72.2167C162.511 80.4667 164.48 87.6595 168.398 94.0854C172.336 100.511 177.601 105.548 184.214 109.238C190.826 112.928 198.164 114.752 206.227 114.752C214.291 114.752 221.608 112.907 228.158 109.238C234.729 105.548 239.973 100.511 243.912 94.0854C247.85 87.6595 249.799 80.3838 249.799 72.2167C249.799 64.0496 247.83 56.6495 243.912 50.2859C239.973 43.9222 234.729 38.8852 228.158 35.2162ZM224.054 83.8662C222.313 87.2449 219.929 89.8774 216.882 91.7845C213.855 93.6708 210.29 94.6243 206.207 94.6243C202.123 94.6243 198.537 93.6708 195.469 91.7845C192.381 89.8982 189.976 87.2656 188.235 83.8662C186.494 80.4874 185.623 76.6112 185.623 72.2167C185.623 67.8222 186.494 63.9875 188.235 60.6502C189.976 57.3129 192.381 54.6803 195.469 52.7318C198.558 50.7834 202.123 49.8298 206.207 49.8298C210.29 49.8298 213.835 50.8041 216.882 52.7318C219.908 54.6803 222.313 57.3129 224.054 60.6502C225.795 63.9875 226.666 67.843 226.666 72.2167C226.666 76.5904 225.795 80.4874 224.054 83.8662Z" fill="white"/>
+<path d="M380.121 38.4308C377.986 36.2957 375.499 34.4716 372.576 33.0621C367.953 30.8234 362.647 29.7041 356.677 29.7041C348.925 29.7041 341.898 31.5904 335.638 35.3837C329.378 39.1563 324.403 44.2555 320.713 50.6814C317.023 57.1072 315.199 64.2793 315.199 72.2391C315.199 80.1989 317.023 87.2673 320.651 93.7346C324.278 100.202 329.232 105.322 335.493 109.115C341.753 112.888 348.883 114.795 356.843 114.795C362.419 114.795 367.58 113.779 372.369 111.727C376.038 110.152 379.126 107.996 381.614 105.28V113.012H402.508V0H380.121V38.4308ZM377.489 83.8678C375.747 87.2466 373.343 89.8791 370.254 91.7861C367.166 93.6724 363.58 94.626 359.517 94.626C355.454 94.626 351.785 93.6724 348.551 91.7861C345.318 89.8998 342.81 87.2673 341.006 83.8678C339.224 80.4891 338.312 76.6128 338.312 72.2184C338.312 67.8239 339.203 63.9891 341.006 60.6518C342.789 57.3145 345.318 54.682 348.551 52.7335C351.785 50.785 355.433 49.8315 359.517 49.8315C363.6 49.8315 367.186 50.785 370.254 52.6713C373.343 54.5576 375.747 57.1901 377.489 60.5896C379.23 63.9684 380.1 67.8446 380.1 72.2391C380.1 76.6336 379.23 80.5098 377.489 83.8886V83.8678Z" fill="white"/>
+<path d="M438.108 0H415.721V112.971H438.108V0Z" fill="white"/>
+<path d="M534.516 31.4851H510.492L494.717 74.4347C493.432 77.3574 492.209 80.3009 491.007 83.2651L471.999 31.4851H447.974L479.938 112.575C477.512 119.188 474.61 126.111 471.045 129.739C461.468 142.031 438.688 141.388 438.19 123.292H415.907C415.492 140.393 428.655 156.043 445.404 159.09C469.304 164.21 490.675 146.757 497.847 125.199L534.516 31.4851Z" fill="white"/>
+</svg></div>
     <div class="si-room"   id="si-room"></div>
     <div class="si-sid"    id="si-sid">—</div>
     <div class="si-status" id="si-status">● LIVE</div>
@@ -288,7 +311,14 @@ body.portrait #btn-split, body.portrait #btn-leave, body.portrait #btn-end { fon
 
 <!-- PANEL -->
 <div id="panel">
-  <div class="phdr"><h2 id="panel-title">Setup</h2><button class="pclose" onclick="closePanel()">✕ Close</button></div>
+  <div class="phdr"><div class="phdr-l"><svg class="brand-logo-svg" role="img" aria-label="Wordly" viewBox="0 0 535 160" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:c2pa="http://c2pa.org/manifest"><metadata><c2pa:manifest>AAAWgmp1bWIAAAAeanVtZGMycGEAEQAQgAAAqgA4m3EDYzJwYQAAABZcanVtYgAAAEdqdW1kYzJtYQARABCAAACqADibcQN1cm46YzJwYTo1ODI5NGM4Zi04MTJmLTQwODgtOTc0Ny1lMWFlYWVjN2UxNDEAAAADl2p1bWIAAAApanVtZGMyYXMAEQAQgAAAqgA4m3EDYzJwYS5hc3NlcnRpb25zAAAAALxqdW1iAAAARGp1bWRjYm9yABEAEIAAAKoAOJtxE2MycGEuaW5ncmVkaWVudC52MwAAAAAYYzJzaHnUH18NzY/jbUgncxnnI4YAAABwY2JvcqNpZGM6Zm9ybWF0bWltYWdlL3N2Zyt4bWxqaW5zdGFuY2VJRHgseG1wOmlpZDo3M2M0MTk4Yy1jOTdjLTQwODctOGFkMy00YTI3M2ViMDVhZDBscmVsYXRpb25zaGlwaHBhcmVudE9mAAAB4mp1bWIAAABBanVtZGNib3IAEQAQgAAAqgA4m3ETYzJwYS5hY3Rpb25zLnYyAAAAABhjMnNod9+fEJcbZyL5X9Y1apv5bgAAAZljYm9yomdhY3Rpb25zgqJmYWN0aW9ua2MycGEub3BlbmVkanBhcmFtZXRlcnOha2luZ3JlZGllbnRzgaJjdXJseC1zZWxmI2p1bWJmPWMycGEuYXNzZXJ0aW9ucy9jMnBhLmluZ3JlZGllbnQudjNkaGFzaFggy6UgDjTQehtTROvKCufuP+9YfaDWSsz5yknT/Eo7f7GkZmFjdGlvbngdY29tLmFudGhyb3BpYy5jbGF1ZGUucHJvdmlkZWRqcGFyYW1ldGVyc6F4H2NvbS5hbnRocm9waWMub3JpZ2luLWNvbmZpZGVuY2VndW5rbm93bmtkZXNjcmlwdGlvbnhmQ2xhdWRlIHByb3ZpZGVkIHRoaXMgZmlsZSBhdCB0aGUgcmVxdWVzdCBvZiBhIHVzZXIgYW5kIG1heSBoYXZlIGNyZWF0ZWQgb3IgbW9kaWZpZWQgdGhlIGZpbGUgY29udGVudHMubXNvZnR3YXJlQWdlbnShZG5hbWVmQ2xhdWRlcmFsbEFjdGlvbnNJbmNsdWRlZPUAAADIanVtYgAAAEBqdW1kY2JvcgARABCAAACqADibcRNjMnBhLmhhc2guZGF0YQAAAAAYYzJzaAbXA/gqHhMcYfQKMMVT7I8AAACAY2JvcqVjYWxnZnNoYTI1NmNwYWRNAAAAAAAAAAAAAAAAAGRoYXNoWCCSWPRlofc4vcC9hjHCpFxUvNj4wAwvdp4PBfKCZy0b5WRuYW1lbmp1bWJmIG1hbmlmZXN0amV4Y2x1c2lvbnOBomVzdGFydBiiZmxlbmd0aBkeBAAAAj5qdW1iAAAAJ2p1bWRjMmNsABEAEIAAAKoAOJtxA2MycGEuY2xhaW0udjIAAAACD2Nib3KlY2FsZ2ZzaGEyNTZpc2lnbmF0dXJleE1zZWxmI2p1bWJmPS9jMnBhL3VybjpjMnBhOjU4Mjk0YzhmLTgxMmYtNDA4OC05NzQ3LWUxYWVhZWM3ZTE0MS9jMnBhLnNpZ25hdHVyZWppbnN0YW5jZUlEeCx4bXA6aWlkOjk4NmVhOTIxLTA5YzYtNDI5NC1hNjI3LWRiYmIyNDc4NTQyN3JjcmVhdGVkX2Fzc2VydGlvbnODomN1cmx4LXNlbGYjanVtYmY9YzJwYS5hc3NlcnRpb25zL2MycGEuaW5ncmVkaWVudC52M2RoYXNoWCDLpSAONNB6G1NE68oK5+4/71h9oNZKzPnKSdP8Sjt/saJjdXJseCpzZWxmI2p1bWJmPWMycGEuYXNzZXJ0aW9ucy9jMnBhLmFjdGlvbnMudjJkaGFzaFggScpFgES8Uwojp2DVF9xOLg7wqs/kfIra05tVJJytGCmiY3VybHgpc2VsZiNqdW1iZj1jMnBhLmFzc2VydGlvbnMvYzJwYS5oYXNoLmRhdGFkaGFzaFggQ1RTMNGiNZa8HeESy5q2qRRqQC+BcRhVz8+YyQyXUvV0Y2xhaW1fZ2VuZXJhdG9yX2luZm+jZG5hbWVvQW50aHJvcGljIEZpbGVzZ3ZlcnNpb25lMS4wLjBrc3BlY1ZlcnNpb25lMi40LjAAABA4anVtYgAAAChqdW1kYzJjcwARABCAAACqADibcQNjMnBhLnNpZ25hdHVyZQAAABAIY2JvctKEWQISogEmGCFZAgowggIGMIIBjaADAgECAhRA5aAK7sI50L64g/oGQgU9Z1UTADAKBggqhkjOPQQDAzBJMRcwFQYDVQQKEw5BbnRocm9waWMsIFBCQzEuMCwGA1UEAxMlQW50aHJvcGljIENvbnRlbnQgQ3JlZGVudGlhbHMgUm9vdCBDQTAeFw0yNjA4MDcxODQzNTZaFw0yODA4MDYxOTQzNTZaMEQxFzAVBgNVBAoTDkFudGhyb3BpYywgUEJDMSkwJwYDVQQDEyBBbnRocm9waWMgQ2xhdWRlIENvbnRlbnQgU2lnbmluZzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABJh6CmvLUBgFFNU0vUKlOVtE6djd17L5SuwX0LemFisBM3dkd/3cyjxFA3Qo5S46fX0/ihY0VZ7mfb9KF703t5OjWDBWMA4GA1UdDwEB/wQEAwIHgDAVBgNVHSUEDjAMBgorBgEEAYPoXgIBMAwGA1UdEwEB/wQCMAAwHwYDVR0jBBgwFoAUzlHiBIFOZFsj+OPEz5o+nMHXXMIwCgYIKoZIzj0EAwMDZwAwZAIwMXMdFJ4BetLLVY7ORuE9noqbbAZOZn/aArXyTwFAZfKrPzxF2vPoJNf1+UCdg1XGAjBwX1zd9WGqYkqmL5SFqw1QySjr1zJfpJM9+1rdDwSPLMOPOjKuiXjoU/pUUeG9RwmhY3BhZFkNngAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPZYQIp4NOeZcCL8Jti2AqgPc9DKSuNbo5NX5IToOyTg7tzuIiiG1AH3vJfvc1wgZH9qi5VY1gG+4vBtb99FtrtDqPE=</c2pa:manifest></metadata>
+<path d="M173.768 24.9365L179.841 1.80344H169.228C152.728 1.80344 138.28 12.9554 134.093 28.9164L120.91 79.3283L101.632 1.78271H77.7529L58.579 79.0174L45.4578 28.9164C41.2913 12.9554 26.8435 1.80344 10.3436 1.80344H0L6.07347 24.9365H10.3436C16.3341 24.9365 21.5784 28.9786 23.0916 34.7826L43.4471 112.992H70.3113L89.7133 38.3687L109.115 112.992H135.979L156.48 34.7826C157.993 28.9993 163.238 24.9365 169.228 24.9365H173.768Z" fill="white"/>
+<path d="M259.956 67.8646V112.97H283.089V67.8646C283.089 59.6768 289.764 53.0022 297.952 53.0022H308.44L314.493 29.8691H297.952C276.995 29.8691 259.956 46.908 259.956 67.8646Z" fill="white"/>
+<path d="M228.158 35.2162C221.587 31.5265 214.27 29.7024 206.227 29.7024C198.185 29.7024 190.826 31.5472 184.214 35.2162C177.601 38.9059 172.315 43.9222 168.398 50.2859C164.459 56.6495 162.511 63.9667 162.511 72.2167C162.511 80.4667 164.48 87.6595 168.398 94.0854C172.336 100.511 177.601 105.548 184.214 109.238C190.826 112.928 198.164 114.752 206.227 114.752C214.291 114.752 221.608 112.907 228.158 109.238C234.729 105.548 239.973 100.511 243.912 94.0854C247.85 87.6595 249.799 80.3838 249.799 72.2167C249.799 64.0496 247.83 56.6495 243.912 50.2859C239.973 43.9222 234.729 38.8852 228.158 35.2162ZM224.054 83.8662C222.313 87.2449 219.929 89.8774 216.882 91.7845C213.855 93.6708 210.29 94.6243 206.207 94.6243C202.123 94.6243 198.537 93.6708 195.469 91.7845C192.381 89.8982 189.976 87.2656 188.235 83.8662C186.494 80.4874 185.623 76.6112 185.623 72.2167C185.623 67.8222 186.494 63.9875 188.235 60.6502C189.976 57.3129 192.381 54.6803 195.469 52.7318C198.558 50.7834 202.123 49.8298 206.207 49.8298C210.29 49.8298 213.835 50.8041 216.882 52.7318C219.908 54.6803 222.313 57.3129 224.054 60.6502C225.795 63.9875 226.666 67.843 226.666 72.2167C226.666 76.5904 225.795 80.4874 224.054 83.8662Z" fill="white"/>
+<path d="M380.121 38.4308C377.986 36.2957 375.499 34.4716 372.576 33.0621C367.953 30.8234 362.647 29.7041 356.677 29.7041C348.925 29.7041 341.898 31.5904 335.638 35.3837C329.378 39.1563 324.403 44.2555 320.713 50.6814C317.023 57.1072 315.199 64.2793 315.199 72.2391C315.199 80.1989 317.023 87.2673 320.651 93.7346C324.278 100.202 329.232 105.322 335.493 109.115C341.753 112.888 348.883 114.795 356.843 114.795C362.419 114.795 367.58 113.779 372.369 111.727C376.038 110.152 379.126 107.996 381.614 105.28V113.012H402.508V0H380.121V38.4308ZM377.489 83.8678C375.747 87.2466 373.343 89.8791 370.254 91.7861C367.166 93.6724 363.58 94.626 359.517 94.626C355.454 94.626 351.785 93.6724 348.551 91.7861C345.318 89.8998 342.81 87.2673 341.006 83.8678C339.224 80.4891 338.312 76.6128 338.312 72.2184C338.312 67.8239 339.203 63.9891 341.006 60.6518C342.789 57.3145 345.318 54.682 348.551 52.7335C351.785 50.785 355.433 49.8315 359.517 49.8315C363.6 49.8315 367.186 50.785 370.254 52.6713C373.343 54.5576 375.747 57.1901 377.489 60.5896C379.23 63.9684 380.1 67.8446 380.1 72.2391C380.1 76.6336 379.23 80.5098 377.489 83.8886V83.8678Z" fill="white"/>
+<path d="M438.108 0H415.721V112.971H438.108V0Z" fill="white"/>
+<path d="M534.516 31.4851H510.492L494.717 74.4347C493.432 77.3574 492.209 80.3009 491.007 83.2651L471.999 31.4851H447.974L479.938 112.575C477.512 119.188 474.61 126.111 471.045 129.739C461.468 142.031 438.688 141.388 438.19 123.292H415.907C415.492 140.393 428.655 156.043 445.404 159.09C469.304 164.21 490.675 146.757 497.847 125.199L534.516 31.4851Z" fill="white"/>
+</svg><h2 id="panel-title">Setup</h2></div><button class="pclose" onclick="closePanel()">✕ Close</button></div>
   <div class="pbody" id="panel-body"></div>
   <div class="pfoot" id="panel-foot"></div>
 </div>
@@ -404,15 +434,17 @@ function closeConf() { document.getElementById('conf-overlay').classList.remove(
 // ═══════════════════════════════════════
 // IDLE
 // ═══════════════════════════════════════
+const APP_VERSION = 'v3.2e';
 function loadIdle() {
+  document.querySelectorAll('.app-ver').forEach(e => e.textContent = APP_VERSION);
   const sid   = cfg.sessionId || '';
   const ready = !!(sid && cfg.passcode && cfg.deviceId !== undefined && cfg.deviceId !== null && cfg.deviceId !== '');
   const sidEl = document.getElementById('card-sid');
   const subEl = document.getElementById('card-sub');
   subEl.textContent = cfg.presenter || (sid ? sid : 'Not configured');
-  subEl.style.color = cfg.presenter ? '#FFFFFF' : (sid ? '#FFFFFF' : '#3A6A9A');
+  subEl.style.color = cfg.presenter ? '#FFFFFF' : (sid ? '#FFFFFF' : '#9BA3AB');
   sidEl.textContent = sid && cfg.presenter ? sid : '';
-  sidEl.style.color = '#7AAAD5';
+  sidEl.style.color = '#9BA3AB';
   document.getElementById('card-dev').textContent = cfg.deviceLabel ? '🎙 '+cfg.deviceLabel : '';
   document.getElementById('si-sid').textContent   = sid || '—';
   document.getElementById('si-room').textContent  = cfg.presenter || '';
@@ -431,54 +463,23 @@ function loadIdle() {
 function toggleOrientation() {
   const isPortrait = document.body.classList.toggle('portrait');
   localStorage.setItem('wordly_portrait', isPortrait ? '1' : '0');
-  // Rebuild the panel footer to reflect new state
-  buildNetPanel();
+  refreshSetupToggles();
 }
 
-function openPanel(w) { document.getElementById('panel').classList.add('open'); w==='network' ? buildNetPanel() : buildWordlyPanel(); }
+function openPanel() { document.getElementById('panel').classList.add('open'); buildWordlyPanel(); }
 function closePanel() { document.getElementById('panel').classList.remove('open'); loadIdle(); }
 
 function isLegBuild() {
   return typeof firebase !== 'undefined';
 }
-function buildNetPanel() {
-  document.getElementById('panel-title').textContent = '🌐 Network';
-  const ok = navigator.onLine;
-  document.getElementById('panel-body').innerHTML = `
-    <div style="padding:14px;background:#162540;border-radius:8px;margin-bottom:16px">
-      <div style="color:${ok?'#44CC77':'#FFAA20'};font-size:18px;font-weight:bold">${ok?'✓ Connected':'✗ No network'}</div>
-    </div>
-    <span class="fl">WiFi SSID (reference)</span>
-    <input type="text" id="net-ssid" value="${cfg.wifiSsid||''}" placeholder="Network name">
-    <div style="margin-top:16px">
-      <span class="fl">Connection Test</span>
-      <div class="msg" id="test-msg">Press to test Wordly reachability.</div>
-      <button class="btn-test" onclick="testNet()">Test Connection</button>
-    </div>`;
+function refreshSetupToggles() {
   const isPortrait = document.body.classList.contains('portrait');
-  const isLocked = !!cfg.cloudLockout;
-  const lockoutHtml = isLegBuild() ? `
-    <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
-      <span style="font-size:13px;color:#5A8AAA;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px">CLOUD CONTROL</span>
-      <button onclick="toggleCloudLockout()" style="padding:8px 18px;background:${isLocked?'#B5352A':'#1B3A6B'};color:#FFF;border:none;border-radius:20px;font-size:14px;font-weight:bold;cursor:pointer">
-        ${isLocked ? '🔒 Locked (tap to allow cloud control)' : '🔓 Unlocked (tap to lock out cloud control)'}
-      </button>
-    </div>` : '';
-  document.getElementById('panel-foot').innerHTML = `
-    <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
-      <span style="font-size:13px;color:#5A8AAA;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px">ORIENTATION</span>
-      <button onclick="toggleOrientation()" style="padding:8px 18px;background:${isPortrait?'#2A6DB5':'#1B3A6B'};color:#FFF;border:none;border-radius:20px;font-size:14px;font-weight:bold;cursor:pointer">
-        ${isPortrait ? '⬛ Portrait (tap for Landscape)' : '▬ Landscape (tap for Portrait)'}
-      </button>
-    </div>
-    ${lockoutHtml}
-    <button class="btn-save" onclick="saveNet()">✓ Save & Close</button>`;
+  const o = document.getElementById('btn-orient');
+  if (o) { o.textContent = isPortrait ? '⬛ Portrait (tap for Landscape)' : '▬ Landscape (tap for Portrait)'; }
+  const l = document.getElementById('btn-lockout');
+  if (l) { const locked = !!cfg.cloudLockout; l.textContent = locked ? '🔒 Locked (tap to allow cloud control)' : '🔓 Unlocked (tap to lock out cloud control)'; l.style.background = locked ? '#B5352A' : '#282D35'; }
 }
-function toggleCloudLockout() {
-  cfg.cloudLockout = !cfg.cloudLockout;
-  saveCfg();
-  buildNetPanel();
-}
+function toggleCloudLockout() { cfg.cloudLockout = !cfg.cloudLockout; saveCfg(); refreshSetupToggles(); }
 async function testNet() {
   const el=document.getElementById('test-msg'); el.textContent='Testing...'; el.className='msg';
   try {
@@ -486,7 +487,6 @@ async function testNet() {
     el.textContent='✓ Network OK — Wordly reachable.'; el.className='msg ok';
   } catch(e) { el.textContent='✗ Cannot reach Wordly.'; el.className='msg err'; }
 }
-function saveNet() { cfg.wifiSsid=document.getElementById('net-ssid').value.trim(); saveCfg(); closePanel(); }
 
 // ── v3.1a START mic auto-pick: saved device first, else most likely external mic ──
 const MIC_BUILTIN=/built-?in|internal|microphone array|macbook|intel|realtek|hdmi|smart sound|monitor/i;
@@ -510,7 +510,7 @@ function micPreselect(devs){const m=resolveMic(devs);return m?m.deviceId:(cfg.de
 // ── v3.1a STOP ──
 
 async function buildWordlyPanel() {
-  document.getElementById('panel-title').textContent = '🎙 Wordly Session Config';
+  document.getElementById('panel-title').textContent = '⚙ App Setup';
   let devOpts = '<option value="">Select device</option>';
   try {
     await navigator.mediaDevices.getUserMedia({audio:true}).then(s=>s.getTracks().forEach(t=>t.stop()));
@@ -523,18 +523,18 @@ async function buildWordlyPanel() {
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
       <div style="display:flex;align-items:center;gap:10px">
         <input type="checkbox" id="s-start-en">
-        <label style="color:#7AAACC;font-size:12px;width:40px">START</label>
-        <input type="time" id="s-start-t" style="background:#060E1A;color:#CDE;border:1px solid #1B3A6B;border-radius:6px;padding:4px 8px;font-size:14px">
+        <label style="color:#9BA3AB;font-size:12px;width:40px">START</label>
+        <input type="time" id="s-start-t" style="background:#121416;color:#CDE;border:1px solid #282D35;border-radius:6px;padding:4px 8px;font-size:14px">
       </div>
       <div style="display:flex;align-items:center;gap:10px">
         <input type="checkbox" id="s-split-en">
-        <label style="color:#7AAACC;font-size:12px;width:40px">SPLIT</label>
-        <input type="time" id="s-split-t" style="background:#060E1A;color:#CDE;border:1px solid #1B3A6B;border-radius:6px;padding:4px 8px;font-size:14px">
+        <label style="color:#9BA3AB;font-size:12px;width:40px">SPLIT</label>
+        <input type="time" id="s-split-t" style="background:#121416;color:#CDE;border:1px solid #282D35;border-radius:6px;padding:4px 8px;font-size:14px">
       </div>
       <div style="display:flex;align-items:center;gap:10px">
         <input type="checkbox" id="s-end-en">
-        <label style="color:#7AAACC;font-size:12px;width:40px">END</label>
-        <input type="time" id="s-end-t" style="background:#060E1A;color:#CDE;border:1px solid #1B3A6B;border-radius:6px;padding:4px 8px;font-size:14px">
+        <label style="color:#9BA3AB;font-size:12px;width:40px">END</label>
+        <input type="time" id="s-end-t" style="background:#121416;color:#CDE;border:1px solid #282D35;border-radius:6px;padding:4px 8px;font-size:14px">
       </div>
     </div>`;
   document.getElementById('panel-body').innerHTML = `
@@ -554,7 +554,15 @@ async function buildWordlyPanel() {
     <select id="w-dev">${devOpts}</select>
     <div class="msg" id="w-msg" style="margin-top:12px"></div>
     <button class="btn-test" onclick="testAudio()">Test Audio (2s)</button>
-    ${schedHtml}`;
+    ${schedHtml}
+    <span class="fl" style="margin-top:16px">Connection Test</span>
+    <div class="msg" id="test-msg">Press to test Wordly reachability.</div>
+    <button class="btn-test" onclick="testNet()">Test Connection</button>
+    <span class="fl" style="margin-top:16px">Orientation</span>
+    <button id="btn-orient" class="btn-test" onclick="toggleOrientation()"></button>
+    ${isLegBuild() ? `<span class="fl" style="margin-top:16px">Cloud Control</span>
+    <button id="btn-lockout" class="btn-test" onclick="toggleCloudLockout()"></button>` : ''}`;
+  refreshSetupToggles();
   document.getElementById('panel-foot').innerHTML = `<button class="btn-save" onclick="saveWordly()">✓ Save & Close</button>`;
 
   document.getElementById('w-link').addEventListener('input', e => {
@@ -564,7 +572,7 @@ async function buildWordlyPanel() {
       document.getElementById('w-sid').value=sid;
       if (pass) document.getElementById('w-pass').value=pass;
       hint.textContent=`✓ Parsed: ${sid}`; hint.style.color='#44CC77';
-    } else { hint.textContent='Paste a join link or type session ID directly.'; hint.style.color='#5AA0E9'; }
+    } else { hint.textContent='Paste a join link or type session ID directly.'; hint.style.color='#75B8FF'; }
   });
 }
 function togPw() {
@@ -1024,7 +1032,7 @@ window.addEventListener('offline',loadIdle);
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-<script src="firebase-config.js?v=6"></script>
-<script src="agent-firebase.js?v=6"></script>
+<script src="firebase-config.js?v=7"></script>
+<script src="agent-firebase.js?v=7"></script>
 </body>
 </html>
