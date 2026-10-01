@@ -50,10 +50,16 @@
     agentId = 'agent-' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
     try { localStorage.setItem('leg_agent_id', agentId); } catch (e) {}
   }
-  const base = 'events/' + eventId + '/agents/' + agentId;
-  const presenceRef = db.ref(base);
-  const commandRef  = db.ref(base + '/command');
-  const resultRef   = db.ref(base + '/lastResult');
+  // Presence refs — may re-point to the shared "_unassigned" bucket if the event is invalid,
+  // so rogue/bad-link devices all surface in the admin's rogue bar instead of a hidden bucket.
+  let presenceRef, commandRef, resultRef;
+  function setBucket(bucket) {
+    const b = 'events/' + bucket + '/agents/' + agentId;
+    presenceRef = db.ref(b);
+    commandRef  = db.ref(b + '/command');
+    resultRef   = db.ref(b + '/lastResult');
+  }
+  setBucket(eventId);
 
   let lastCmdId = null;
 
@@ -186,17 +192,24 @@
     div.textContent = '⚠ ' + text;
     host.insertBefore(div, host.firstChild);
   }
-  function checkEventValid() {
-    if (eventId === '_unassigned') { showEventWarning('No event on this link — confirm your Event ID / link.'); return; }
+  // ---- Pick the bucket (real event, or shared _unassigned for rogue/bad links), then wire ----
+  function begin() {
+    if (eventId === '_unassigned') {
+      showEventWarning('No event on this link — confirm your Event ID / link.');
+      wire(); return;
+    }
     db.ref('eventIndex/' + eventId).once('value')
-      .then(function (s) { if (!s.exists()) showEventWarning('This link points to a non-existent event — confirm your Event ID / link.'); })
-      .catch(function () {});
+      .then(function (s) {
+        if (!s.exists()) {
+          showEventWarning('This link points to a non-existent event — confirm your Event ID / link.');
+          setBucket('_unassigned');   // route rogue/bad-link device to the shared bucket so admin sees it
+        }
+        wire();
+      })
+      .catch(function () { wire(); });
   }
 
-  // ---- Wire everything once we have an auth session ----
-  function begin() {
-    checkEventValid();
-
+  function wire() {
     // Mark offline automatically if the tab dies / device drops
     presenceRef.child('online').onDisconnect().set(false);
     presenceRef.child('status').onDisconnect().set('offline');
