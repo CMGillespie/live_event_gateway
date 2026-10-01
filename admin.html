@@ -20,7 +20,7 @@
   .pulse { animation: pulse 1.4s ease-in-out infinite; } @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
 </style>
 </head>
-<body class="bg-white text-slate-900 antialiased p-3">
+<body class="bg-white text-slate-900 antialiased p-3 min-h-screen flex flex-col">
 
 <!-- ══ SIGN IN ══ -->
 <div id="signin" class="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center gap-5 p-8 text-center">
@@ -34,7 +34,7 @@
 </div>
 
 <!-- ══ APP ══ -->
-<div id="app" hidden>
+<div id="app" hidden class="flex-1 flex flex-col">
   <nav class="flex justify-between items-center mb-4 pb-2 border-b border-slate-200">
     <div class="text-xl font-black tracking-tight">Wordly <span class="text-blue-600">Live Event Gateway</span></div>
     <div class="flex items-center gap-4">
@@ -233,7 +233,7 @@
   </button>
 
   <!-- Wordly footer (mirrors wordly.ai) -->
-  <footer class="mt-12 pt-4 text-center text-xs text-slate-400">
+  <footer class="mt-auto pt-6 text-center text-xs text-slate-400">
     <a href="https://wordly.ai/" target="_blank" rel="noopener" class="hover:text-blue-600">Wordly AI Interpretation</a> |
     <a href="https://wordly.ai/privacy-policy" target="_blank" rel="noopener" class="hover:text-blue-600">Privacy Policy</a> |
     <a href="https://wordly.ai/wordly-inc-terms-of-service" target="_blank" rel="noopener" class="hover:text-blue-600">Terms of Service</a> |

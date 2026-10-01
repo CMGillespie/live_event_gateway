@@ -18,7 +18,7 @@
   .pulse{animation:pulse 1.4s ease-in-out infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 </style>
 </head>
-<body class="bg-slate-950 text-white p-3 min-h-screen">
+<body class="bg-slate-950 text-white p-3 min-h-screen flex flex-col">
 
 <div id="signin" class="fixed inset-0 bg-slate-950 z-50 flex flex-col items-center justify-center gap-4 text-center p-8">
   <div class="text-2xl font-black">Wordly <span class="text-blue-400">Live Event Gateway</span> — Monitor</div>
@@ -172,7 +172,7 @@
   document.getElementById('search').addEventListener('input', render);
 </script>
 
-<footer class="mt-10 pt-4 text-center text-xs text-slate-500">
+<footer class="mt-auto pt-6 text-center text-xs text-slate-500">
   <a href="https://wordly.ai/" target="_blank" rel="noopener" class="hover:text-blue-400">Wordly AI Interpretation</a> |
   <a href="https://wordly.ai/privacy-policy" target="_blank" rel="noopener" class="hover:text-blue-400">Privacy Policy</a> |
   <a href="https://wordly.ai/wordly-inc-terms-of-service" target="_blank" rel="noopener" class="hover:text-blue-400">Terms of Service</a> |
