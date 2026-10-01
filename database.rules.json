@@ -16,6 +16,10 @@
         "$eventId": { ".write": "auth != null" }
       }
     },
+    "eventIndex": {
+      ".read": "auth != null",
+      "$eventId": { ".write": "auth != null" }
+    },
     "events": {
       "$eventId": {
         ".read":  "auth != null && (!data.exists() || data.child('ownerUid').val() == auth.uid || data.child('members').child(auth.uid).exists())",

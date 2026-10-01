@@ -72,6 +72,13 @@ Admin becomes event-aware: pick an event, see its rooms; account view spans all 
 
 ## Item 3 — Sharing admin access (internal now, external is an MRD question)
 
+**Role tiers (future — no granularity today; all members are full-access for now):**
+- **Admin / full** — everything, including editing the Details page.
+- **Operator** — can operate rooms remotely (start / stop / split / mute / leave / end) but **cannot** edit the Details page.
+- **Viewer** — can see the Active Event page, the live monitor, and Details, and can search/filter — but **no** control actions (no start/stop/split/etc.).
+
+
+
 **Goal.** Let the right people into the right dashboard.
 
 **Internal (buildable now).** Wordly staff are already Google-authed. "Share" = add a Google email to an account/event's member list; they sign in and see what's shared. No permission tiers yet (internal, trusted) — just membership. Standard, low-risk.

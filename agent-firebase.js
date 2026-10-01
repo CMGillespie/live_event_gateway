@@ -176,8 +176,27 @@
     setTimeout(pushPresence, 1500);
   }
 
+  // ---- Warn if this link points at an event that doesn't exist ----
+  function showEventWarning(text) {
+    if (document.getElementById('leg-event-warn')) return;
+    const host = document.querySelector('#screen-idle .idle-left') || document.body;
+    const div = document.createElement('div');
+    div.id = 'leg-event-warn';
+    div.style.cssText = 'background:#7a1a1a;color:#ffdddd;font-weight:bold;font-size:13px;text-align:center;padding:10px;border-radius:8px;margin:8px 0;';
+    div.textContent = '⚠ ' + text;
+    host.insertBefore(div, host.firstChild);
+  }
+  function checkEventValid() {
+    if (eventId === '_unassigned') { showEventWarning('No event on this link — confirm your Event ID / link.'); return; }
+    db.ref('eventIndex/' + eventId).once('value')
+      .then(function (s) { if (!s.exists()) showEventWarning('This link points to a non-existent event — confirm your Event ID / link.'); })
+      .catch(function () {});
+  }
+
   // ---- Wire everything once we have an auth session ----
   function begin() {
+    checkEventValid();
+
     // Mark offline automatically if the tab dies / device drops
     presenceRef.child('online').onDisconnect().set(false);
     presenceRef.child('status').onDisconnect().set('offline');

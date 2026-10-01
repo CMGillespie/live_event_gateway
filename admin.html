@@ -44,6 +44,13 @@
     </div>
   </nav>
 
+  <!-- Rogue / unassigned devices — visible everywhere -->
+  <div id="rogue-bar" hidden class="mb-3 bg-amber-100 border border-amber-300 text-amber-900 rounded-xl p-3">
+    <div class="text-xs font-black uppercase mb-1">⚠ Devices on a bad or missing event link (<span id="rogue-count">0</span>)</div>
+    <div class="text-xs mb-2">These checked in but aren't tied to any event. Use the session/name to find the room and fix its link.</div>
+    <div id="rogue-list" class="flex flex-wrap gap-2"></div>
+  </div>
+
   <!-- ── EVENTS LIST ── -->
   <div id="events-view">
     <div class="flex items-center justify-between mb-4">
@@ -63,6 +70,7 @@
       <button onclick="closeEvent()" class="text-slate-500 hover:text-slate-900 font-bold">← All events</button>
       <h2 class="text-xl font-black" id="event-title">Event</h2>
       <span class="text-xs text-slate-400 font-mono" id="event-id-label"></span>
+      <button onclick="openShareDialog()" class="ml-auto bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-blue-700">👥 Share</button>
     </div>
 
     <!-- tabs -->
@@ -119,25 +127,13 @@
         <span id="details-msg" class="text-sm"></span>
       </div>
 
-    <!-- link + share -->
-    <div class="grid gap-3 mb-4" style="grid-template-columns:1fr 1fr">
-      <div class="bg-slate-100 border rounded-xl p-3">
-        <div class="text-xs font-black uppercase text-slate-500 mb-1">Room link for this event (generic)</div>
-        <div class="text-xs text-slate-500 mb-2">Hand this to a room — the presenter page shows up in this event, then the operator enters session details locally.</div>
-        <div class="flex gap-2">
-          <input id="event-link" readonly class="flex-1 px-3 py-2 border rounded-lg font-mono text-sm bg-white">
-          <button onclick="copyEventLink()" class="bg-slate-900 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-blue-600">Copy</button>
-        </div>
-      </div>
-      <div class="bg-slate-100 border rounded-xl p-3">
-        <div class="text-xs font-black uppercase text-slate-500 mb-1">Share this event (invite by email)</div>
-        <div class="text-xs text-slate-500 mb-2">The person must have signed into LEG at least once.</div>
-        <div class="flex gap-2 mb-2">
-          <input id="share-email" type="email" placeholder="colleague@wordly.ai" class="flex-1 px-3 py-2 border rounded-lg text-sm">
-          <button onclick="addMember()" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-blue-700">Add</button>
-        </div>
-        <div id="share-msg" class="text-xs min-h-[16px] mb-1"></div>
-        <div id="members-list" class="flex flex-wrap gap-1.5"></div>
+    <!-- room link -->
+    <div class="bg-slate-100 border rounded-xl p-3 mb-4">
+      <div class="text-xs font-black uppercase text-slate-500 mb-1">Room link for this event (generic)</div>
+      <div class="text-xs text-slate-500 mb-2">Hand this to a room — the presenter page shows up in this event, then the operator enters session details locally.</div>
+      <div class="flex gap-2">
+        <input id="event-link" readonly class="flex-1 px-3 py-2 border rounded-lg font-mono text-sm bg-white">
+        <button onclick="copyEventLink()" class="bg-slate-900 text-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-blue-600">Copy</button>
       </div>
     </div>
 
@@ -228,7 +224,30 @@
       </table>
     </div>
     <div id="empty" class="text-center text-slate-400 italic font-bold uppercase tracking-widest py-16" hidden>No rooms checked into this event yet — open its room link on a device.</div>
+
+    <div id="notin-wrap" class="mt-5 border-t pt-4" hidden>
+      <div class="text-xs font-black uppercase tracking-widest text-amber-600 mb-2">⚠ Not checked in — <span id="notin-count">0</span></div>
+      <div id="notin-list" class="flex flex-wrap gap-2"></div>
+    </div>
     </div><!-- /tab-active -->
+  </div>
+</div>
+
+<!-- Share dialog -->
+<div id="share-dialog" hidden class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl p-5 w-full max-w-md">
+    <div class="flex items-center justify-between mb-2">
+      <h3 class="text-lg font-black">Share event</h3>
+      <button onclick="closeShareDialog()" class="text-slate-400 hover:text-slate-800 text-xl font-black">&times;</button>
+    </div>
+    <div class="text-xs text-slate-500 mb-3">Invite another internal Wordly person by email. They must have signed into LEG at least once.</div>
+    <div class="flex gap-2 mb-2">
+      <input id="share-email" type="email" placeholder="colleague@wordly.ai" class="flex-1 px-3 py-2 border rounded-lg text-sm">
+      <button onclick="addMember()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700">Add</button>
+    </div>
+    <div id="share-msg" class="text-xs min-h-[16px] mb-2"></div>
+    <div class="text-xs font-black uppercase text-slate-500 mb-1">People with access</div>
+    <div id="members-list" class="flex flex-wrap gap-1.5"></div>
   </div>
 </div>
 
@@ -246,8 +265,9 @@
   let user = null;
   let userEventsRef = null;
   let currentEventId = null, currentEvent = null;
-  let agentsRef = null;
+  let agentsRef = null, sessionsRef = null, currentSessions = [];
   let cardAgentRefs = {};   // per-event-card live agent listeners (My Events counters)
+  let rogueRef = null;      // watches unassigned/rogue devices globally
 
   let agentData = {}, prevStatus = {}, selected = {}, armMode = null, filter = null;
   let sortKey = null, sortDir = 1, prevFilter = null;
@@ -276,15 +296,32 @@
       db.ref('users/'+u.uid).update({ email:u.email||'', name:u.displayName||'', lastSeen: firebase.database.ServerValue.TIMESTAMP });
       if (u.email) db.ref('usersByEmail/'+emailKey(u.email)).set(u.uid);
       watchMyEvents();
+      watchRogue();
       closeEvent();
     } else {
       user = null;
       if (userEventsRef){ userEventsRef.off(); userEventsRef = null; }
       if (agentsRef){ agentsRef.off(); agentsRef = null; }
+      if (rogueRef){ rogueRef.off(); rogueRef = null; }
       document.getElementById('app').hidden = true;
       document.getElementById('signin').hidden = false;
     }
   });
+
+  // ── Rogue / unassigned devices (visible in every view) ──
+  function watchRogue(){
+    if (rogueRef) return;
+    rogueRef = db.ref('events/_unassigned/agents');
+    rogueRef.on('value', s => {
+      const v = s.val() || {};
+      const online = Object.keys(v).filter(k => v[k].online).map(k => v[k]);
+      const bar = document.getElementById('rogue-bar'); if (!bar) return;
+      document.getElementById('rogue-count').textContent = online.length;
+      bar.hidden = online.length === 0;
+      document.getElementById('rogue-list').innerHTML = online.map(a =>
+        `<span class="text-xs bg-white border border-amber-300 rounded px-2 py-1"><b>${esc(a.label||'device')}</b> · <span class="font-mono">${esc(a.sessionId||'no session')}</span></span>`).join('');
+    });
+  }
 
   // ── Events list ──
   function watchMyEvents(){
@@ -310,6 +347,7 @@
       </div>`;
     }).join('');
     // enrich each card with dates / city / main contact
+    ids.forEach(id => db.ref('eventIndex/'+id).set(true).catch(()=>{}));  // backfill existence marker
     ids.forEach(id => db.ref('events/'+id).once('value').then(s => {
       const e = s.val() || {}, card = document.getElementById('ev-card-'+id); if (!card) return;
       card.querySelector('[data-f=name]').textContent = e.name || id;
@@ -345,6 +383,7 @@
     if (!name){ nameEl.focus(); return; }
     const ref = db.ref('events').push();
     const id = ref.key;
+    db.ref('eventIndex/'+id).set(true);
     ref.set({ ownerUid:user.uid, name, createdAt: firebase.database.ServerValue.TIMESTAMP })
       .then(()=> db.ref('userEvents/'+user.uid+'/'+id).set({ role:'owner', name }))
       .then(()=>{ nameEl.value=''; openEvent(id); })
@@ -369,6 +408,10 @@
       agentData = {}; prevStatus = {}; selected = {}; armMode=null; filter=null;
       agentsRef = db.ref('events/'+id+'/agents');
       agentsRef.on('value', s => onData(s.val() || {}));
+      // watch planned sessions (from the CSV upload) for the "not checked in" list
+      if (sessionsRef) sessionsRef.off();
+      sessionsRef = db.ref('events/'+id+'/sessions');
+      sessionsRef.on('value', s => { currentSessions = s.val() || []; render(); });
     });
   }
   function closeEvent(){
@@ -384,7 +427,7 @@
     if(typed!=='delete'){ if(msg) msg.textContent='Type "delete" to confirm.'; return; }
     const id=currentEventId, members=(currentEvent&&currentEvent.members)||{};
     const uids=[currentEvent&&currentEvent.ownerUid].concat(Object.keys(members)).filter(Boolean);
-    const jobs=[db.ref('events/'+id).remove()];
+    const jobs=[db.ref('events/'+id).remove(), db.ref('eventIndex/'+id).remove()];
     uids.forEach(u=>jobs.push(db.ref('userEvents/'+u+'/'+id).remove()));
     jobs.push(db.ref('userEvents/'+user.uid+'/'+id).remove());
     Promise.all(jobs).then(()=>closeEvent()).catch(e=>alert('Delete failed: '+e.message));
@@ -410,6 +453,8 @@
   }
 
   // ── Sharing (invite existing users by email) ──
+  function openShareDialog(){ renderMembers(); const m=document.getElementById('share-msg'); if(m)m.textContent=''; document.getElementById('share-dialog').hidden=false; }
+  function closeShareDialog(){ document.getElementById('share-dialog').hidden=true; }
   function renderMembers(){
     const m = (currentEvent && currentEvent.members) || {};
     const owner = currentEvent && currentEvent.ownerUid;
@@ -613,7 +658,17 @@
     rows=sortRows(rows);
     document.getElementById('empty').hidden=ids.length!==0;
     document.getElementById('tbody').innerHTML=rows.map(rowHtml).join('');
-    updateArmUI(); updateFilterUI(); updateSortUI(); tick();
+    updateArmUI(); updateFilterUI(); updateSortUI(); tick(); renderNotCheckedIn();
+  }
+  function renderNotCheckedIn(){
+    const wrap=document.getElementById('notin-wrap'); if(!wrap) return;
+    const onlineSids={};
+    Object.keys(agentData).forEach(id=>{ const a=agentData[id]; if(a.online && a.sessionId) onlineSids[a.sessionId]=1; });
+    const missing=(currentSessions||[]).filter(s=>s && s.sessionId && !onlineSids[s.sessionId]);
+    wrap.hidden = missing.length===0;
+    document.getElementById('notin-count').textContent=missing.length;
+    document.getElementById('notin-list').innerHTML=missing.map(s=>
+      `<span class="text-xs bg-amber-50 border border-amber-300 rounded px-2 py-1"><b>${esc(s.name||s.sessionId)}</b> <span class="font-mono text-slate-500">${esc(s.sessionId)}</span>${s.link?` · <a href="${esc(s.link)}" target="_blank" class="text-blue-600 hover:underline">link</a>`:''}</span>`).join('');
   }
   function rowHtml(a){
     const id=a.id, st=statusOf(a), streaming=isStreaming(st);
