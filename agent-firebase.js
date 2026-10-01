@@ -12,6 +12,27 @@
 // Results  : agents/{agentId}/lastResult -> {action, ok, note, ts}
 // ============================================================
 (function () {
+  // ---- LEG identity: tab title + version suffix (base stays untouched) ----
+  // LEG_VERSION tracks as a sub of the base appliance version shown in the footer.
+  // Footer reads e.g. "v3.2e · LEG v1" — base number lets Chris eyeball sync state.
+  const LEG_VERSION = 'LEG v1';
+  try { document.title = 'Wordly LEG Presenter'; } catch (e) {}
+  function stampLeg() {
+    // Header label next to the logo: "Presenter" -> "LEG Presenter"
+    document.querySelectorAll('.brand-sub').forEach(function (e) {
+      if (/LEG/.test(e.textContent)) return;
+      e.textContent = 'LEG ' + (e.textContent || '').trim();
+    });
+    // Footer version: append LEG sub-version after the base number
+    document.querySelectorAll('.app-ver').forEach(function (e) {
+      if (/LEG/.test(e.textContent)) return;               // already stamped
+      e.textContent = (e.textContent || '').trim() + ' · ' + LEG_VERSION;
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { setTimeout(stampLeg, 0); });
+  } else { setTimeout(stampLeg, 0); }
+
   // Use a SEPARATE Firebase app instance ('legAgent') so the agent's anonymous
   // sign-in has its own isolated auth storage and NEVER overwrites the admin's
   // Google session on the same origin (they'd otherwise share one login slot).
@@ -183,25 +204,25 @@
   }
 
   // ---- Warn if this link points at an event that doesn't exist ----
-  function showEventWarning(text) {
+  function showEventWarning() {
     if (document.getElementById('leg-event-warn')) return;
     const host = document.querySelector('#screen-idle .idle-left') || document.body;
     const div = document.createElement('div');
     div.id = 'leg-event-warn';
-    div.style.cssText = 'background:#7a1a1a;color:#ffdddd;font-weight:bold;font-size:13px;text-align:center;padding:10px;border-radius:8px;margin:8px 0;';
-    div.textContent = '⚠ ' + text;
+    div.style.cssText = 'background:#FDE68A;color:#78350F;font-weight:bold;font-size:12px;padding:8px 26px 8px 10px;border-radius:8px;margin:8px 0;position:relative;';
+    div.innerHTML = '⚠ This page is not associated to a specific event. Check with your admin if this is not expected.<span style="position:absolute;right:8px;top:6px;cursor:pointer;font-weight:900;font-size:14px" onclick="this.parentNode.remove()">×</span>';
     host.insertBefore(div, host.firstChild);
   }
   // ---- Pick the bucket (real event, or shared _unassigned for rogue/bad links), then wire ----
   function begin() {
     if (eventId === '_unassigned') {
-      showEventWarning('No event on this link — confirm your Event ID / link.');
+      showEventWarning();
       wire(); return;
     }
     db.ref('eventIndex/' + eventId).once('value')
       .then(function (s) {
         if (!s.exists()) {
-          showEventWarning('This link points to a non-existent event — confirm your Event ID / link.');
+          showEventWarning();
           setBucket('_unassigned');   // route rogue/bad-link device to the shared bucket so admin sees it
         }
         wire();

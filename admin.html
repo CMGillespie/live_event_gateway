@@ -44,15 +44,15 @@
     </div>
   </nav>
 
-  <!-- Rogue / unassigned devices — visible everywhere -->
-  <div id="rogue-bar" hidden class="mb-3 bg-amber-100 border border-amber-300 text-amber-900 rounded-xl p-3">
-    <div class="text-xs font-black uppercase mb-1">⚠ Devices on a bad or missing event link (<span id="rogue-count">0</span>)</div>
-    <div class="text-xs mb-2">These checked in but aren't tied to any event. Use the session/name to find the room and fix its link.</div>
-    <div id="rogue-list" class="flex flex-wrap gap-2"></div>
-  </div>
-
   <!-- ── EVENTS LIST ── -->
   <div id="events-view">
+    <!-- Rogue / unassigned devices — admin home only (so it doesn't alarm operators inside events) -->
+    <div id="rogue-bar" hidden class="mb-4 bg-amber-100 border border-amber-300 text-amber-900 rounded-xl p-4">
+      <div class="text-sm font-black uppercase mb-1">⚠ Devices on a bad or missing event link (<span id="rogue-count">0</span>)</div>
+      <div class="text-xs mb-2">These checked in but aren't tied to any event. Use the session/name to find the room and fix its link.</div>
+      <div id="rogue-list" class="flex flex-wrap gap-2"></div>
+    </div>
+
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-lg font-black uppercase tracking-widest">My Events</h2>
       <div class="flex gap-2">
@@ -266,6 +266,7 @@
   let userEventsRef = null;
   let currentEventId = null, currentEvent = null;
   let agentsRef = null, sessionsRef = null, currentSessions = [];
+  let detailsDirty = false;   // unsaved edits on the Details tab
   let cardAgentRefs = {};   // per-event-card live agent listeners (My Events counters)
   let rogueRef = null;      // watches unassigned/rogue devices globally
 
@@ -415,6 +416,8 @@
     });
   }
   function closeEvent(){
+    if (detailsDirty && !confirm('You have unsaved changes on the Details tab. Leave without saving?')) return;
+    detailsDirty = false;
     if (agentsRef){ agentsRef.off(); agentsRef = null; }
     currentEventId = null; currentEvent = null;
     document.getElementById('event-view').hidden = true;
@@ -514,6 +517,7 @@
     (e.docLinks||[]).forEach(addDocLinkRow); if(!(e.docLinks||[]).length) addDocLinkRow();
     renderDocFiles();
     document.getElementById('details-msg').textContent='';
+    detailsDirty=false;
   }
   function addContactRow(c){
     c=c||{};
@@ -567,7 +571,7 @@
       Object.assign(currentEvent,patch);
       document.getElementById('event-title').textContent=name;
       db.ref('userEvents/'+user.uid+'/'+currentEventId+'/name').set(name);
-      msg.textContent='Saved ✓'; msg.className='text-sm text-green-600';
+      msg.textContent='Saved ✓'; msg.className='text-sm text-green-600'; detailsDirty=false;
     }).catch(e=>{ msg.textContent='Save failed: '+e.message; msg.className='text-sm text-red-600'; });
   }
 
@@ -750,6 +754,9 @@
   function removeAgent(id){ if(!sure('Remove this card?\n(If the device is still open, it re-appears on its next check-in.)'))return; db.ref(agentPath(id)).remove(); }
   function clearOffline(){ db.ref('events/'+currentEventId+'/agents').once('value').then(snap=>{ const all=snap.val()||{}; const off=Object.keys(all).filter(k=>!all[k].online); if(!off.length){alert('No offline agents to clear.');return;} if(!sure(`Remove ${off.length} offline card${off.length===1?'':'s'}?`))return; const u={}; off.forEach(k=>u[k]=null); db.ref('events/'+currentEventId+'/agents').update(u); }); }
   document.getElementById('search').addEventListener('input',render);
+  // Details tab: track unsaved edits so we can warn before leaving
+  document.getElementById('tab-details').addEventListener('input',()=>{ detailsDirty=true; });
+  window.addEventListener('beforeunload',e=>{ if(detailsDirty){ e.preventDefault(); e.returnValue=''; } });
 
   // ── CSV / XLSX bulk link generator ──
   let mergedData=null, mergedHeaders=null, mergedIsCSV=false;
