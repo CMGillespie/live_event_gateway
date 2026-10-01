@@ -46,13 +46,6 @@
 
   <!-- ── EVENTS LIST ── -->
   <div id="events-view">
-    <!-- Rogue / unassigned devices — admin home only (so it doesn't alarm operators inside events) -->
-    <div id="rogue-bar" hidden class="mb-4 bg-amber-100 border border-amber-300 text-amber-900 rounded-xl p-4">
-      <div class="text-sm font-black uppercase mb-1">⚠ Devices on a bad or missing event link (<span id="rogue-count">0</span>)</div>
-      <div class="text-xs mb-2">These checked in but aren't tied to any event. Use the session/name to find the room and fix its link.</div>
-      <div id="rogue-list" class="flex flex-wrap gap-2"></div>
-    </div>
-
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-lg font-black uppercase tracking-widest">My Events</h2>
       <div class="flex gap-2">
@@ -70,7 +63,7 @@
       <button onclick="closeEvent()" class="text-slate-500 hover:text-slate-900 font-bold">← All events</button>
       <h2 class="text-xl font-black" id="event-title">Event</h2>
       <span class="text-xs text-slate-400 font-mono" id="event-id-label"></span>
-      <button onclick="openShareDialog()" class="ml-auto bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-blue-700">👥 Share</button>
+      <button id="btn-share" onclick="openShareDialog()" class="ml-auto bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-blue-700">👥 Share</button>
     </div>
 
     <!-- tabs -->
@@ -268,7 +261,9 @@
   let agentsRef = null, sessionsRef = null, currentSessions = [];
   let detailsDirty = false;   // unsaved edits on the Details tab
   let cardAgentRefs = {};   // per-event-card live agent listeners (My Events counters)
-  let rogueRef = null;      // watches unassigned/rogue devices globally
+  let rogueRef = null;      // watches unassigned/rogue (zombie) devices globally
+  let zombieAgents = {};    // latest snapshot of the _unassigned bucket
+  let isZombie = false;     // true while the Zombie Events view is open
 
   let agentData = {}, prevStatus = {}, selected = {}, armMode = null, filter = null;
   let sortKey = null, sortDir = 1, prevFilter = null;
@@ -309,19 +304,26 @@
     }
   });
 
-  // ── Rogue / unassigned devices (visible in every view) ──
+  // ── Zombie (unassigned / bad-link) devices — surfaced as a card on My Events ──
   function watchRogue(){
     if (rogueRef) return;
     rogueRef = db.ref('events/_unassigned/agents');
-    rogueRef.on('value', s => {
-      const v = s.val() || {};
-      const online = Object.keys(v).filter(k => v[k].online).map(k => v[k]);
-      const bar = document.getElementById('rogue-bar'); if (!bar) return;
-      document.getElementById('rogue-count').textContent = online.length;
-      bar.hidden = online.length === 0;
-      document.getElementById('rogue-list').innerHTML = online.map(a =>
-        `<span class="text-xs bg-white border border-amber-300 rounded px-2 py-1"><b>${esc(a.label||'device')}</b> · <span class="font-mono">${esc(a.sessionId||'no session')}</span></span>`).join('');
-    });
+    rogueRef.on('value', s => { zombieAgents = s.val() || {}; renderZombieCard(); });
+  }
+  function renderZombieCard(){
+    const el = document.getElementById('zombie-counts'); if (!el) return;
+    const online = Object.keys(zombieAgents).filter(k => zombieAgents[k] && zombieAgents[k].online).length;
+    el.innerHTML = `<span class="text-xs font-bold px-2 py-0.5 rounded bg-green-100 text-green-700">● ${online}</span>`;
+  }
+  function zombieCardHtml(){
+    return `<div class="border-2 border-amber-300 rounded-xl p-4 bg-yellow-50 shadow-sm cursor-pointer hover:border-amber-500" id="ev-card-zombie" onclick="openZombies()">
+      <div class="font-black text-lg">🧟 Zombie Events</div>
+      <div class="text-xs text-amber-700 mt-1">Devices on a bad or missing event link. Click to triage and control them.</div>
+      <div class="flex flex-wrap items-center gap-2 mt-2">
+        <span class="text-xs font-bold uppercase px-2 py-0.5 rounded bg-amber-100 text-amber-800">Unassigned</span>
+        <span id="zombie-counts" class="flex gap-1.5"></span>
+      </div>
+    </div>`;
   }
 
   // ── Events list ──
@@ -333,8 +335,8 @@
   function renderEvents(map){
     const ids = Object.keys(map);
     const list = document.getElementById('events-list');
-    document.getElementById('events-empty').hidden = ids.length !== 0;
-    list.innerHTML = ids.map(id => {
+    document.getElementById('events-empty').hidden = true;   // zombie card always fills the grid
+    list.innerHTML = zombieCardHtml() + ids.map(id => {
       const role = (typeof map[id] === 'object' ? map[id].role : map[id]) || 'member';
       const name = (typeof map[id] === 'object' ? map[id].name : '') || id;
       return `<div class="border rounded-xl p-4 bg-white shadow-sm cursor-pointer hover:border-blue-400" id="ev-card-${id}" onclick="openEvent('${id}')">
@@ -347,6 +349,7 @@
         </div>
       </div>`;
     }).join('');
+    renderZombieCard();   // fill the zombie card's live count
     // enrich each card with dates / city / main contact
     ids.forEach(id => db.ref('eventIndex/'+id).set(true).catch(()=>{}));  // backfill existence marker
     ids.forEach(id => db.ref('events/'+id).once('value').then(s => {
@@ -392,7 +395,13 @@
   }
 
   // ── Event detail ──
+  function setEventChrome(){            // normal event: Share + Details tab visible
+    isZombie = false;
+    document.getElementById('btn-share').style.display = '';
+    document.getElementById('tabbtn-details').style.display = '';
+  }
   function openEvent(id){
+    setEventChrome();
     currentEventId = id;
     db.ref('events/'+id).once('value').then(snap=>{
       currentEvent = snap.val() || {};
@@ -415,8 +424,29 @@
       sessionsRef.on('value', s => { currentSessions = s.val() || []; render(); });
     });
   }
+  // ── Zombie Events: control unassigned / bad-link devices like an event ──
+  function openZombies(){
+    setEventChrome();                        // start from normal, then strip event-only chrome
+    isZombie = true;
+    currentEventId = '_unassigned';
+    currentEvent = { name:'Zombie Events' };
+    document.getElementById('event-title').textContent = '🧟 Zombie Events';
+    document.getElementById('event-id-label').textContent = 'unassigned / bad-link devices';
+    document.getElementById('btn-share').style.display = 'none';      // nothing to share
+    document.getElementById('tabbtn-details').style.display = 'none'; // no portal/details for zombies
+    showTab('active');
+    document.getElementById('events-view').hidden = true;
+    document.getElementById('event-view').hidden = false;
+    if (agentsRef) agentsRef.off();
+    agentData = {}; prevStatus = {}; selected = {}; armMode = null; filter = null;
+    if (sessionsRef){ sessionsRef.off(); sessionsRef = null; }
+    currentSessions = [];   // no planned-session list for the zombie bucket
+    agentsRef = db.ref('events/_unassigned/agents');
+    agentsRef.on('value', s => onData(s.val() || {}));
+  }
   function closeEvent(){
     if (detailsDirty && !confirm('You have unsaved changes on the Details tab. Leave without saving?')) return;
+    setEventChrome();
     detailsDirty = false;
     if (agentsRef){ agentsRef.off(); agentsRef = null; }
     currentEventId = null; currentEvent = null;
