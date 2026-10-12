@@ -55,6 +55,7 @@ button, input, select, textarea { font-family: inherit; }
 button:focus-visible { outline: 3px solid #75B8FF; outline-offset: 2px; }
 .tog-wrap input:focus-visible + .tog-slide { outline: 3px solid #75B8FF; outline-offset: 2px; }
 .live-logo .brand-logo-svg { height: 28px; margin-bottom: 10px; }
+#app-footer a { color: #75B8FF; text-decoration: underline; }
 #app-footer { position: fixed; left: 0; right: 0; bottom: 0; height: 26px; line-height: 26px; text-align: center; font-size: 11px; color: #9BA3AB; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: #121416; z-index: 5; }
 .brand-sub  { font-size: 15px; color: #75B8FF; }
 .scard { background: #1A1D21; border-radius: 8px; padding: 14px 18px; margin-bottom: 12px; border-left: 4px solid #017CFF; }
@@ -216,7 +217,7 @@ body.portrait #btn-split, body.portrait #btn-leave, body.portrait #btn-end { fon
 </style>
 </head>
 <body>
-<div id="app-footer">Wordly AI Interpretation | Privacy Policy | Terms of Service | Copyright &copy; 2019-2026 Wordly, Inc. | <span class="app-ver"></span></div>
+<div id="app-footer"><a href="https://wordly.ai/" target="_blank" rel="noopener">Wordly AI Interpretation</a> | <a href="https://wordly.ai/privacy-policy" target="_blank" rel="noopener">Privacy Policy</a> | <a href="https://wordly.ai/wordly-inc-terms-of-service" target="_blank" rel="noopener">Terms of Service</a> | Copyright &copy; 2019-2026 Wordly, Inc. | <span class="app-ver"></span></div>
 
 <!-- IDLE -->
 <div id="screen-idle" class="screen active">
@@ -235,11 +236,9 @@ body.portrait #btn-split, body.portrait #btn-leave, body.portrait #btn-end { fon
       <div class="scard-dev" id="card-dev"></div>
     </div>
     <div class="net-line" id="net-line">Checking network...</div>
-    <div class="ibtns-top">
+    <div class="ibtns-bot" style="margin-top:14px">
       <button onclick="openPanel()">⚙ App Setup</button>
-    </div>
-    <div class="ibtns-bot" style="margin-top:8px">
-      <button class="btn-quit" onclick="confirm2('Quit this app?', doQuit)">✕ Quit</button>
+      <button class="btn-quit" onclick="askEndOpen()">■ End Open Session</button>
     </div>
   </div>
   <div class="idle-right">
@@ -434,7 +433,7 @@ function closeConf() { document.getElementById('conf-overlay').classList.remove(
 // ═══════════════════════════════════════
 // IDLE
 // ═══════════════════════════════════════
-const APP_VERSION = 'v3.2e';
+const APP_VERSION = 'v3.2g';
 function loadIdle() {
   document.querySelectorAll('.app-ver').forEach(e => e.textContent = APP_VERSION);
   const sid   = cfg.sessionId || '';
@@ -960,6 +959,7 @@ function doLeave(){
   stopAudio();stopTimer();wssStop('user');
   document.getElementById('s-iframe').src='about:blank';
   wssDisconnect(false);
+  cfg.leftOpen=true;saveCfg();
   returnToIdle();
 }
 
@@ -972,6 +972,7 @@ function doEnd(){
 
 function doEnded(reason){
   stopAudio();stopTimer();connected=false;
+  if(reason!=='leave'){cfg.leftOpen=false;saveCfg();}
   showScreen('ended');
   document.getElementById('en-sub').textContent=
     reason==='portal'?'Session closed from the Wordly portal.':
@@ -980,9 +981,43 @@ function doEnded(reason){
   startCd();
 }
 
-function doQuit(){
-  wssStop('user');stopAudio();wssDisconnect(false);
-  window.close();
+function askEndOpen(){
+  if(!cfg.leftOpen){
+    const h=document.getElementById('start-hint');
+    h.textContent='No open session to end.';
+    setTimeout(loadIdle,4000);
+    return;
+  }
+  confirm2('End session '+cfg.sessionId+' for everyone?', endOpenSession);
+}
+function endOpenSession(){
+  const hint=document.getElementById('start-hint');
+  hint.textContent='Ending session...';
+  let done=false;
+  const sock=new WebSocket(WSS_URL);
+  const finish=(msg,clear)=>{
+    if(done) return; done=true;
+    if(clear){cfg.leftOpen=false;saveCfg();}
+    try{sock.close();}catch(e){}
+    hint.textContent=msg;
+    setTimeout(loadIdle,4000);
+  };
+  sock.onopen=()=>{
+    const m={type:'connect',presentationCode:cfg.sessionId,accessKey:cfg.passcode,connectionCode:CONNECTION_CODE};
+    if(cfg.presenter) m.name=cfg.presenter;
+    sock.send(JSON.stringify(m));
+  };
+  sock.onmessage=e=>{
+    if(typeof e.data!=='string') return;
+    let d; try{d=JSON.parse(e.data);}catch(x){return;}
+    if(d.type==='status'&&d.action==='connect'){
+      if(!d.success){finish('Session already closed.',true);return;}
+      sock.send(JSON.stringify({type:'disconnect',end:true}));
+      setTimeout(()=>finish('Session ended.',true),500);
+    } else if(d.type==='end'){finish('Session ended.',true);}
+  };
+  sock.onerror=()=>finish('Could not reach Wordly. Session not ended.',false);
+  setTimeout(()=>finish('Timed out. Session may still be open.',false),4000);
 }
 
 // ═══════════════════════════════════════
@@ -1032,7 +1067,8 @@ window.addEventListener('offline',loadIdle);
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-<script src="firebase-config.js?v=9"></script>
-<script src="agent-firebase.js?v=9"></script>
+<script src="firebase-config.js?v=10"></script>
+<script src="agent-firebase.js?v=10"></script>
+
 </body>
 </html>

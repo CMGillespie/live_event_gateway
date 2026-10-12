@@ -98,6 +98,38 @@ Open governance questions to settle before any of these: revocation mid-event, s
 
 ---
 
+## Item 4 — Sub-events / room groups (SXSW driver)
+
+**Status: planned, not built.** Raised from SXSW conversations 2026-10.
+
+**Goal.** A grouping level *between* Event and room — floor, hotel, venue — so operators can organize, filter, bulk-control, and (later) share a *subset* of an event's rooms rather than all of them. At 97 rooms across multiple hotels/floors, "the whole event" is too coarse.
+
+**Data model.** `events/{eventId}/groups/{groupId}` = `{ name, type: floor|hotel|venue }`. Each agent carries a `groupId` (set in its link — `?event=E&group=G&…` — or assigned in admin). Monitor and admin gain grouped sections + a group filter; bulk arm-or-fire can target one group.
+
+**Two phases.**
+1. **Groups as labels (cheap, soon).** Group is a tag used for display, filtering, grouped bulk control, grouped monitor. **No security-rule change** — sharing stays event-level. Covers ~80% of the SXSW ask (organize by floor/hotel, act on a floor).
+2. **Group-scoped sharing/roles (later).** A venue tech who sees/controls *only their floor*. RTDB rules cannot cleanly gate "only rooms where groupId==X," so this is the point that **forces the RTDB→Firestore decision** (already flagged in Item 2) and rides with the **external-auth track (Item 3)**.
+
+**Touches.** The preconfigured link gains a `group` param; the CSV generator (Item 1/13) gains a **group** column.
+
+**Dependency.** Phase 1 is independent and can land on today's RTDB. Phase 2 depends on the Firestore call and Item 3.
+
+---
+
+## Item 5 — Short links (the links are too long to handle by hand)
+
+**Status: planned, not built.** Raised 2026-10. Preconfigured links (`?event=…&session=…&passcode=…&name=…`, soon `&group=…`) are now too long to read aloud, type, or sanity-check. Need **both** the full link (visible/inspectable) *and* a short link. Two concrete drivers: (1) **Adobe truncates/mangles long links when pages are printed to PDF**, so a long link in a printed handout can arrive broken; (2) the **off-case where a human must type the link by hand**. A short code (5–8 chars, exact length not important) survives both. No security angle — the session ID + passcode are already in the open by Wordly's model; the short code only trades length for legibility.
+
+**Recommended — LEG-native short links (no external service, no secret, no cost).** A tiny redirect page in the LEG repo (e.g. `/go?c=CODE`) reads a short code, looks it up in Firebase `shortlinks/{code}` = `{ url, eventId, createdAt }`, and redirects to the stored full link. Admin mints a code whenever it builds a preconfig link, stores the mapping, and shows **both** links side by side. Works on static GitHub Pages (client-side RTDB lookup + redirect). Codes are short enough to type or read aloud; the full link stays visible for inspection. The short code hides *all* the complexity, including the future `group` param.
+
+**Alternative — Bitly.** Real Bitly needs an API token (a secret) → a **Cloud Function (Blaze)** to hold it, plus an external dependency and rate limits. Upside: branded domain + click analytics. Recommend the LEG-native path first; add Bitly only if branded/trackable links are specifically wanted.
+
+**Touches.** Admin single-link builder and the CSV generator both emit a short link alongside the full `leg_link`. Security: `shortlinks/` is auth-gated like the rest; the redirect page is read-only.
+
+**Dependency.** LEG-native path is independent, no Blaze. Bitly path needs Blaze (shared with Item 1 API / Item 3 external auth).
+
+---
+
 ## Cross-cutting threads
 
 - **Blaze plan** gates two things: the Item 1 API path and Item 3 external auth. The spreadsheet fallback, the hierarchy, and internal sharing do not need it. So a cheap, useful slice (spreadsheet enrichment + hierarchy + internal sharing) is possible with no billing change.
